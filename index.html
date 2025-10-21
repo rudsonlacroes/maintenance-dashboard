@@ -61,7 +61,7 @@
                  <div class="flex flex-col sm:flex-row justify-between sm:items-center">
                     <div>
                         <h1 class="text-3xl font-bold text-gray-900">Maintenance Plan</h1>
-                        <p class="text-gray-500 mt-1">A dynamic and visual overview of your maintenance tasks.</p>
+                        <p class="text-gray-500 mt-1">A dynamic and visual overview of maintenance tasks created by RLC.</p>
                     </div>
                     <div class="mt-4 sm:mt-0">
                          <label for="plant-selector" class="block text-sm font-medium text-gray-700">Select Plant</label>
@@ -337,25 +337,40 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getFirestore, collection, onSnapshot, doc, getDoc, setDoc, addDoc, deleteDoc, runTransaction, updateDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
+        
         document.addEventListener('DOMContentLoaded', async () => {
             // --- FIREBASE SETUP ---
+            // This setup uses globally available variables (__firebase_config, __app_id, __initial_auth_token)
+            // provided by the hosting environment. This avoids manual configuration.
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
             let db, auth;
             try {
-                const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+                const firebaseConfigJSON = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
+                if (firebaseConfigJSON === '{}' && (typeof __firebase_config === 'undefined')) {
+                     console.warn("Firebase config not found. Using a placeholder. This will not connect to a real database.");
+                }
+                const firebaseConfig = JSON.parse(firebaseConfigJSON);
+
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
 
+                // Authenticate the user
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
                     await signInAnonymously(auth);
                 }
-            } catch (error) {
+            } catch (error)
+            {
                 console.error("Firebase initialization failed:", error);
-                document.getElementById('loading-overlay').innerHTML = `<div class="text-center text-red-500">Error connecting to database. Please check console.</div>`;
+                const loadingOverlay = document.getElementById('loading-overlay');
+                loadingOverlay.innerHTML = `
+                <div class="text-center p-4">
+                    <h2 class="text-xl font-bold text-red-600">Database Connection Failed</h2>
+                    <p class="text-gray-700 mt-2">Could not connect to the database. Please check the console for errors.</p>
+                     <p class="text-gray-500 mt-2 text-sm">If you are running this locally, ensure you have set up your own Firebase project and config.</p>
+                </div>`;
                 return;
             }
 
@@ -460,7 +475,7 @@
                 const headers = ['asset', 'subAsset', 'description', 'type', 'frequency', 'startWeek', 'time', 'status'];
                 const plantConfig = plantConfigs.find(p => p.id === currentPlantName);
                 let exampleRow = ['Line 1', '1.1 Packer', 'Monthly inspection', 'Inspections', 'Monthly', '1', '2.5', 'Open']; // Default example
-                if (plantConfig && plantConfig.assets.length > 0 && plantConfig.assets[0].subAssets.length > 0) {
+                if (plantConfig && plantConfig.assets.length > 0 && plantConfig.assets[0].subAssets && plantConfig.assets[0].subAssets.length > 0) {
                     exampleRow[0] = plantConfig.assets[0].name;
                     exampleRow[1] = plantConfig.assets[0].subAssets[0];
                 }
