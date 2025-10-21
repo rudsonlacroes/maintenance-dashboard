@@ -46,6 +46,58 @@
         .year-view-grid {
             grid-template-columns: 200px repeat(52, minmax(30px, 1fr));
         }
+        /* Asset Tree Styles */
+        .asset-node {
+            display: flex;
+            align-items: center;
+            padding: 4px 8px;
+            border-radius: 6px;
+            transition: background-color 0.2s;
+        }
+        .asset-node:hover {
+            background-color: #f4f4f5; /* gray-100 */
+        }
+        .asset-node-content {
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+        }
+        .toggle-expand-btn {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-family: monospace;
+            font-weight: bold;
+            font-size: 14px;
+            color: #4f46e5; /* indigo-600 */
+        }
+        .toggle-expand-btn.empty {
+            color: transparent; /* No children */
+            cursor: default;
+        }
+        .asset-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .asset-node:hover .asset-actions {
+            opacity: 1;
+        }
+        .asset-action-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 2px;
+            border-radius: 4px;
+        }
+        .asset-action-btn:hover {
+            background-color: #e4e4e7; /* gray-200 */
+        }
     </style>
 </head>
 <body class="antialiased text-gray-800">
@@ -58,14 +110,14 @@
         <div class="max-w-7xl mx-auto">
             <!-- Header -->
             <header class="mb-4">
-                 <div class="flex flex-col sm:flex-row justify-between sm:items-center">
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center">
                     <div>
                         <h1 class="text-3xl font-bold text-gray-900">Maintenance Plan</h1>
                         <p class="text-gray-500 mt-1">A dynamic and visual overview of maintenance tasks by RLC.</p>
                     </div>
                     <div class="mt-4 sm:mt-0">
-                         <label for="plant-selector" class="block text-sm font-medium text-gray-700">Select Plant</label>
-                         <select id="plant-selector" class="mt-1 block w-full sm:w-64 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                        <label for="location-selector" class="block text-sm font-medium text-gray-700">Select Location</label>
+                        <select id="location-selector" class="mt-1 block w-full sm:w-64 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
                     </div>
                 </div>
             </header>
@@ -150,14 +202,13 @@
                             </div>
                         </div>
                         <p class="text-sm text-gray-500 mt-2">
-                            Om taken te importeren, download eerst de template. Vul de data in en zorg ervoor dat de 'asset' en 'subAsset' waarden exact overeenkomen met de waarden in de Settings.
+                            Om taken te importeren, download eerst de template. Vul de data in en zorg ervoor dat de 'asset' waarden exact overeenkomen met de waarden in de Settings.
                         </p>
                         <div class="overflow-x-auto mt-4">
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Asset</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sub-asset</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Task</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Frequency</th>
@@ -177,7 +228,7 @@
                     <div class="bg-white p-6 rounded-lg shadow-sm">
                         <div class="md:flex justify-between items-center mb-6">
                             <h3 class="text-lg font-semibold text-gray-900 mb-4 md:mb-0">Weekly Task Overview</h3>
-                             <div class="flex items-center space-x-2">
+                            <div class="flex items-center space-x-2">
                                 <label for="week-selector" class="text-sm font-medium">Select Week:</label>
                                 <input type="number" id="week-selector" min="1" max="52" class="w-24 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
                             </div>
@@ -191,7 +242,6 @@
                                         <thead class="bg-gray-50">
                                             <tr>
                                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Asset</th>
-                                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Sub-asset</th>
                                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Task</th>
                                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Time (hrs)</th>
                                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
@@ -212,17 +262,17 @@
                 <!-- Year View -->
                 <div id="year-view" class="tab-content hidden">
                     <div class="bg-white p-6 rounded-lg shadow-sm overflow-x-auto">
-                         <h3 class="text-lg font-semibold text-gray-900 mb-4">Yearly Task Schedule</h3>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Yearly Task Schedule</h3>
                         <div id="year-view-grid-container" class="min-w-max"></div>
                     </div>
                 </div>
 
                 <!-- Reports View -->
                 <div id="reports-view" class="tab-content hidden">
-                     <div class="bg-white p-6 rounded-lg shadow-sm">
+                    <div class="bg-white p-6 rounded-lg shadow-sm">
                         <h3 class="text-lg font-semibold text-gray-900 mb-4">Generate Report</h3>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                             <div>
+                            <div>
                                 <label for="report-type-selector" class="block text-sm font-medium text-gray-700">Report Type</label>
                                 <select id="report-type-selector" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
                                     <option value="weekly">Weekly</option>
@@ -230,11 +280,11 @@
                                     <option value="quarterly">Quarterly</option>
                                 </select>
                             </div>
-                             <div>
+                            <div>
                                 <label for="report-period-selector" class="block text-sm font-medium text-gray-700">Period</label>
                                 <select id="report-period-selector" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
                             </div>
-                             <div>
+                            <div>
                                 <button id="generate-pdf-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center">
                                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                                     Generate PDF
@@ -247,29 +297,67 @@
                 <!-- Settings View -->
                 <div id="settings-view" class="tab-content hidden">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <!-- Add New Plant -->
+                        <!-- Location Management -->
                         <div class="bg-white p-6 rounded-lg shadow-sm">
-                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Add New Plant</h3>
-                            <form id="add-plant-form" class="space-y-4">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Add New Location</h3>
+                            <form id="add-location-form" class="space-y-4">
                                 <div>
-                                    <label for="new-plant-name" class="block text-sm font-medium text-gray-700">Plant Name</label>
-                                    <input type="text" id="new-plant-name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                    <label for="new-location-name" class="block text-sm font-medium text-gray-700">Location Name</label>
+                                    <input type="text" id="new-location-name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
                                 </div>
                                 <div class="flex justify-end">
-                                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md">Add Plant</button>
+                                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md">Add Location</button>
                                 </div>
                             </form>
                         </div>
 
-                        <!-- Manage Existing Plants -->
                         <div class="bg-white p-6 rounded-lg shadow-sm">
-                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Manage Existing Plant</h3>
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Manage Location & Assets</h3>
                             <div>
-                                <label for="edit-plant-selector" class="block text-sm font-medium text-gray-700">Select Plant to Manage</label>
-                                <select id="edit-plant-selector" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                                <label for="edit-location-selector" class="block text-sm font-medium text-gray-700">Select Location to Manage</label>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <select id="edit-location-selector" class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                                    <button id="rename-location-btn" title="Rename Location" disabled class="flex-shrink-0 bg-blue-500 hover:bg-blue-600 text-white font-bold p-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                    </button>
+                                    <button id="delete-location-btn" title="Delete Location" disabled class="flex-shrink-0 bg-red-600 hover:bg-red-700 text-white font-bold p-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    </button>
+                                </div>
                             </div>
-                            <div id="asset-manager" class="mt-6 hidden"></div>
+                            <div id="asset-manager" class="mt-6 hidden">
+                                <!-- Asset tree will be rendered here -->
+                            </div>
                         </div>
+
+                        <!-- Global Settings -->
+                        <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <!-- Maintenance Types -->
+                            <div class="bg-white p-6 rounded-lg shadow-sm">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="text-lg font-semibold text-gray-900">Maint. Types</h3>
+                                    <button class="add-setting-btn bg-blue-500 hover:bg-blue-600 text-white text-sm font-bold py-1 px-3 rounded-md" data-list-key="maintenanceTypes">Add</button>
+                                </div>
+                                <div id="maintenanceTypes-list" class="space-y-2"></div>
+                            </div>
+                            <!-- Frequencies -->
+                            <div class="bg-white p-6 rounded-lg shadow-sm">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="text-lg font-semibold text-gray-900">Frequencies</h3>
+                                    <button class="add-setting-btn bg-blue-500 hover:bg-blue-600 text-white text-sm font-bold py-1 px-3 rounded-md" data-list-key="frequencies">Add</button>
+                                </div>
+                                <div id="frequencies-list" class="space-y-2"></div>
+                            </div>
+                            <!-- Statuses -->
+                            <div class="bg-white p-6 rounded-lg shadow-sm">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="text-lg font-semibold text-gray-900">Statuses</h3>
+                                    <button class="add-setting-btn bg-blue-500 hover:bg-blue-600 text-white text-sm font-bold py-1 px-3 rounded-md" data-list-key="statuses">Add</button>
+                                </div>
+                                <div id="statuses-list" class="space-y-2"></div>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </main>
@@ -282,21 +370,17 @@
             <div class="flex justify-between items-center pb-3 border-b">
                 <h3 id="modal-title" class="text-2xl font-bold">Add New Task</h3>
                 <button id="close-modal-btn" class="text-gray-400 hover:text-gray-600">
-                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
             <form id="task-form" class="mt-4 space-y-4">
                 <input type="hidden" id="task-id">
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                        <label for="asset" class="block text-sm font-medium text-gray-700">Asset</label>
-                        <select id="asset" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
-                    </div>
-                    <div>
-                        <label for="sub-asset" class="block text-sm font-medium text-gray-700">Sub-asset</label>
-                        <select id="sub-asset" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
-                    </div>
+                
+                <div>
+                    <label for="asset" class="block text-sm font-medium text-gray-700">Asset</label>
+                    <select id="asset" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
                 </div>
+                
                 <div>
                     <label for="task-description" class="block text-sm font-medium text-gray-700">Task Description</label>
                     <input type="text" id="task-description" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
@@ -312,7 +396,7 @@
                     </div>
                 </div>
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                     <div>
+                    <div>
                         <label for="start-week" class="block text-sm font-medium text-gray-700">Start Week</label>
                         <input type="number" id="start-week" min="1" max="52" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
                     </div>
@@ -332,51 +416,128 @@
         </div>
     </div>
 
+    <!-- Custom Alert Modal -->
+    <div id="alert-modal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden opacity-0 z-50">
+        <div class="relative top-20 mx-auto p-5 border w-full max-w-sm shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <h3 id="alert-title" class="text-lg leading-6 font-medium text-gray-900">Notification</h3>
+                <div class="mt-2 px-7 py-3">
+                    <p id="alert-message" class="text-sm text-gray-500 whitespace-pre-wrap">Alert message goes here.</p>
+                </div>
+                <div class="items-center px-4 py-3">
+                    <button id="alert-ok-btn" class="px-4 py-2 bg-indigo-600 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Confirm Modal -->
+    <div id="confirm-modal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden opacity-0 z-50">
+        <div class="relative top-20 mx-auto p-5 border w-full max-w-sm shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100">
+                    <svg class="h-6 w-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                </div>
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mt-2">Confirmation</h3>
+                <div class="mt-2 px-7 py-3">
+                    <p id="confirm-message" class="text-sm text-gray-500">Confirmation message goes here.</p>
+                </div>
+                <div class="items-center px-4 py-3 sm:flex sm:flex-row-reverse">
+                    <button id="confirm-yes-btn" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm">
+                        Yes
+                    </button>
+                    <button id="confirm-no-btn" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm">
+                        No
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Prompt Modal -->
+    <div id="prompt-modal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden opacity-0 z-50">
+        <div class="relative top-20 mx-auto p-5 border w-full max-w-sm shadow-lg rounded-md bg-white">
+            <form id="prompt-form">
+                <div class="mt-3">
+                    <h3 id="prompt-title" class="text-lg leading-6 font-medium text-gray-900">Input Required</h3>
+                    <div class="mt-2 px-1 py-3">
+                        <p id="prompt-message" class="text-sm text-gray-500 mb-3">Prompt message goes here.</p>
+                        <input type="text" id="prompt-input" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" required>
+                    </div>
+                    <div class="items-center px-4 py-3 sm:flex sm:flex-row-reverse">
+                        <button type="submit" id="prompt-ok-btn" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm">
+                            OK
+                        </button>
+                        <button type="button" id="prompt-cancel-btn" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script type="module">
         // Firebase Imports
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
-        import { getFirestore, collection, onSnapshot, doc, getDoc, setDoc, addDoc, deleteDoc, runTransaction, updateDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, collection, onSnapshot, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, runTransaction, updateDoc, writeBatch, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         
-        // ---  DATABASE CONFIGURATION ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyAxkGXSeHjupGrK33PO7JjbA_CNAYWCdOE",
-            authDomain: "maintenanceplan-2ec9f.firebaseapp.com",
-            projectId: "maintenanceplan-2ec9f",
-            storageBucket: "maintenanceplan-2ec9f.appspot.com",
-            messagingSenderId: "56889846685",
-            appId: "1:56889846685:web:9876e04681db5428495d74",
-            measurementId: "G-FPNV2407ER"
-        };
+        // --- DATABASE CONFIGURATION ---
+        // These variables are injected by the environment.
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
 
         document.addEventListener('DOMContentLoaded', async () => {
             // --- FIREBASE SETUP ---
-            let db, auth;
+            let db, auth, userId;
             try {
-                 if (!firebaseConfig || !firebaseConfig.apiKey) {
-                    throw new Error("Firebase configuration is missing.");
+                 if (!firebaseConfig || Object.keys(firebaseConfig).length === 0) {
+                    throw new Error("Firebase configuration is missing. Cannot initialize app.");
                 }
                 const app = initializeApp(firebaseConfig);
-                const analytics = getAnalytics(app);
                 db = getFirestore(app);
                 auth = getAuth(app);
-                await signInAnonymously(auth);
+                setLogLevel('debug'); // Enable Firestore logging
+
+                // Sign in
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                userId = auth.currentUser?.uid;
+                if (!userId) {
+                    throw new Error("Authentication failed, user ID is not available.");
+                }
+                console.log("Authenticated with user ID:", userId);
+                
             } catch (error) {
                 console.error("Firebase initialization failed:", error);
                 const loadingOverlay = document.getElementById('loading-overlay');
                 
                 let errorMessage;
-                if (error.code === 'auth/configuration-not-found') {
+                if (error.message.includes("Firebase configuration is missing")) {
+                     errorMessage = `
+                        <div class="text-center p-4">
+                            <h2 class="text-xl font-bold text-red-600">Configuration Error</h2>
+                            <p class="text-gray-700 mt-2">The Firebase configuration is missing or invalid.</p>
+                            <p class="text-gray-600 mt-4 text-sm">Please ensure the app is loaded in the correct environment.</p>
+                        </div>`;
+                }
+                else if (error.code === 'auth/configuration-not-found' || error.message.includes("Authentication failed")) {
                     errorMessage = `
                     <div class="text-center p-4">
                         <h2 class="text-xl font-bold text-red-600">Firebase Authenticatie Fout</h2>
-                        <p class="text-gray-700 mt-2">De anonieme inlogmethode is niet geactiveerd in je Firebase-project.</p>
+                        <p class="text-gray-700 mt-2">De anonieme inlogmethode is niet geactiveerd in je Firebase-project, or authentication failed.</p>
                         <p class="text-gray-600 mt-4 text-sm"><b>Actie vereist:</b></p>
                         <ol class="text-left text-sm text-gray-600 list-decimal list-inside mt-2 bg-gray-100 p-3 rounded">
                             <li>Ga naar je <a href="https://console.firebase.google.com/" target="_blank" class="text-blue-600 underline">Firebase Console</a>.</li>
-                            <li>Selecteer je project: <b>${firebaseConfig.projectId || 'maintenanceplan-2ec9f'}</b>.</li>
+                            <li>Selecteer je project: <b>${firebaseConfig.projectId || 'YOUR_PROJECT_ID'}</b>.</li>
                             <li>Ga naar <b>Build > Authentication</b>.</li>
                             <li>Klik op het <b>Sign-in method</b> tabblad.</li>
                             <li>Klik op <b>Anonymous</b> in de lijst en activeer de schakelaar (Enable).</li>
@@ -384,21 +545,20 @@
                         </ol>
                     </div>`;
                 } else {
-                     errorMessage = `
+                        errorMessage = `
                     <div class="text-center p-4">
                         <h2 class="text-xl font-bold text-red-600">Database Connection Failed</h2>
-                        <p class="text-gray-700 mt-2">The Firebase configuration is missing or incorrect.</p>
-                        <p class="text-gray-600 mt-4 text-sm">Please check the console for more details.</p>
+                        <p class="text-gray-700 mt-2">Could not connect to the database.</p>
+                        <p class="text-gray-600 mt-4 text-sm">Error: ${error.message}</p>
                     </div>`;
                 }
                 loadingOverlay.innerHTML = errorMessage;
                 return;
             }
-            const appId = firebaseConfig.projectId;
 
 
             // --- DATABASE & LISTS (Static Config) ---
-            const staticDb = {
+            const defaultSettings = {
                 frequencies: ['Weekly', 'Biweekly', 'Monthly', 'Bimonthly', 'Quarterly', 'Biannual', 'Annual'],
                 maintenanceTypes: ['Preventive Maintenance (PM)', 'Corrective Maintenance (CM)', 'Breakdown / Reactive Maintenance', 'Predictive Maintenance (PdM)', 'Condition-Based Maintenance (CBM)', 'Inspections', 'Project Maintenance', 'Ad-hoc work', '3rd Party Maintenance'],
                 statuses: ['Open', 'In Progress', 'Completed', 'Postponed'],
@@ -407,6 +567,7 @@
                     'In Progress': 'bg-yellow-500',
                     'Completed': 'bg-green-500',
                     'Postponed': 'bg-blue-500'
+                    // Note: Colors are not user-configurable in this version
                 }
             };
             
@@ -429,13 +590,16 @@
 
             // --- STATE MANAGEMENT ---
             let tasks = [];
-            let plantConfigs = [];
-            let currentPlantName = null;
+            let locationConfigs = [];
+            let globalSettings = { ...defaultSettings };
+            let currentLocationName = null;
             let unsubscribeTasks = () => {};
+            let unsubscribeSettings = () => {};
+            let expandedAssetNodes = new Set(); // Stores IDs of expanded nodes
 
             // --- UI ELEMENTS ---
             const loadingOverlay = document.getElementById('loading-overlay');
-            const plantSelector = document.getElementById('plant-selector');
+            const locationSelector = document.getElementById('location-selector');
             const navTabs = document.getElementById('nav-tabs');
             const planningTableBody = document.getElementById('planning-table-body');
             const modal = document.getElementById('task-modal');
@@ -450,18 +614,84 @@
             const filterType = document.getElementById('filter-type');
             const filterStatus = document.getElementById('filter-status');
             const resetFiltersBtn = document.getElementById('reset-filters');
-            const addPlantForm = document.getElementById('add-plant-form');
-            const editPlantSelector = document.getElementById('edit-plant-selector');
+            const addLocationForm = document.getElementById('add-location-form');
+            const editLocationSelector = document.getElementById('edit-location-selector');
+            const renameLocationBtn = document.getElementById('rename-location-btn');
+            const deleteLocationBtn = document.getElementById('delete-location-btn');
             const assetManagerDiv = document.getElementById('asset-manager');
             const reportTypeSelector = document.getElementById('report-type-selector');
             const reportPeriodSelector = document.getElementById('report-period-selector');
             const generatePdfBtn = document.getElementById('generate-pdf-btn');
             const downloadTemplateBtn = document.getElementById('download-template-btn');
+            const settingsView = document.getElementById('settings-view');
+
+            // --- CUSTOM MODAL ELEMENTS ---
+            const alertModal = document.getElementById('alert-modal');
+            const alertTitle = document.getElementById('alert-title');
+            const alertMessage = document.getElementById('alert-message');
+            const alertOkBtn = document.getElementById('alert-ok-btn');
+
+            const confirmModal = document.getElementById('confirm-modal');
+            const confirmMessage = document.getElementById('confirm-message');
+            const confirmYesBtn = document.getElementById('confirm-yes-btn');
+            const confirmNoBtn = document.getElementById('confirm-no-btn');
+
+            const promptModal = document.getElementById('prompt-modal');
+            const promptForm = document.getElementById('prompt-form');
+            const promptTitle = document.getElementById('prompt-title');
+            const promptMessage = document.getElementById('prompt-message');
+            const promptInput = document.getElementById('prompt-input');
+            const promptOkBtn = document.getElementById('prompt-ok-btn');
+            const promptCancelBtn = document.getElementById('prompt-cancel-btn');
+
+            let confirmCallback = null;
+            let promptCallback = null;
+
+            // --- CUSTOM MODAL FUNCTIONS ---
+            const showModal = (modalEl) => {
+                modalEl.classList.remove('hidden');
+                setTimeout(() => modalEl.classList.remove('opacity-0'), 10);
+            };
+
+            const hideModal = (modalEl) => {
+                modalEl.classList.add('opacity-0');
+                setTimeout(() => modalEl.classList.add('hidden'), 300);
+            };
+
+            const showAlert = (message, isError = false) => {
+                alertMessage.textContent = message;
+                alertTitle.textContent = isError ? 'Error' : 'Notification';
+                if (isError) {
+                    alertOkBtn.classList.replace('bg-indigo-600', 'bg-red-600');
+                    alertOkBtn.classList.replace('hover:bg-indigo-700', 'hover:bg-red-700');
+                } else {
+                    alertOkBtn.classList.replace('bg-red-600', 'bg-indigo-600');
+                    alertOkBtn.classList.replace('hover:bg-red-700', 'hover:bg-indigo-700');
+                }
+                showModal(alertModal);
+            };
+
+            const showConfirm = (message, onConfirm) => {
+                confirmMessage.textContent = message;
+                confirmCallback = onConfirm;
+                showModal(confirmModal);
+            };
+
+            const showPrompt = (message, onConfirm, title = "Input Required", defaultValue = "") => {
+                promptTitle.textContent = title;
+                promptMessage.textContent = message;
+                promptInput.value = defaultValue;
+                promptCallback = onConfirm;
+                showModal(promptModal);
+                setTimeout(() => promptInput.focus(), 100);
+            };
             
             // --- UTILITY FUNCTIONS ---
             const getScheduledWeeks = (task) => {
                 const weeks = [];
-                const freq = frequencyInWeeks[task.frequency];
+                // Handle legacy frequency mapping
+                const freqName = task.frequency;
+                const freq = frequencyInWeeks[freqName] || (globalSettings.frequencies.includes(freqName) ? 52 : 52); // Default to annual if unknown
                 if (!freq) return weeks;
                 for (let i = task.startWeek; i <= 52; i += freq) { weeks.push(i); }
                 return weeks;
@@ -478,30 +708,33 @@
             };
 
             const exportToCsv = (filteredTasks) => {
-                const headers = ['ID', 'Asset', 'Sub-asset', 'Task Description', 'Type', 'Frequency', 'Start Week', 'Time (hrs)', 'Status'];
+                const headers = ['id', 'Asset', 'Task Description', 'Type', 'Frequency', 'Start Week', 'Time (hrs)', 'Status'];
                 const rows = filteredTasks.map(task => [
-                    task.id, `"${task.asset.replace(/"/g, '""')}"`, `"${task.subAsset.replace(/"/g, '""')}"`, `"${task.description.replace(/"/g, '""')}"`,
+                    task.id, `"${task.asset.replace(/"/g, '""')}"`, `"${task.description.replace(/"/g, '""')}"`,
                     task.type, task.frequency, task.startWeek, task.time, task.status
                 ]);
                 let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
                 const encodedUri = encodeURI(csvContent);
                 const link = document.createElement("a");
                 link.setAttribute("href", encodedUri);
-                const plantName = currentPlantName.replace(/\s+/g, '_');
-                link.setAttribute("download", `maintenance_plan_${plantName}.csv`);
+                const locationName = currentLocationName.replace(/\s+/g, '_');
+                link.setAttribute("download", `maintenance_plan_${locationName}.csv`);
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
             };
             
             const downloadCsvTemplate = () => {
-                const headers = ['asset', 'subAsset', 'description', 'type', 'frequency', 'startWeek', 'time', 'status'];
-                const plantConfig = plantConfigs.find(p => p.id === currentPlantName);
-                let exampleRow = ['Line 1', '1.1 Packer', 'Monthly inspection', 'Inspections', 'Monthly', '1', '2.5', 'Open']; // Default example
-                if (plantConfig && plantConfig.assets.length > 0 && plantConfig.assets[0].subAssets && plantConfig.assets[0].subAssets.length > 0) {
-                    exampleRow[0] = plantConfig.assets[0].name;
-                    exampleRow[1] = plantConfig.assets[0].subAssets[0];
+                const headers = ['asset', 'description', 'type', 'frequency', 'startWeek', 'time', 'status'];
+                const locationConfig = locationConfigs.find(p => p.id === currentLocationName);
+                let exampleAsset = 'Line 1'; // Default example
+                if (locationConfig && locationConfig.assets.length > 0) {
+                    exampleAsset = locationConfig.assets[0].name;
+                    if (locationConfig.assets[0].children && locationConfig.assets[0].children.length > 0) {
+                        exampleAsset = locationConfig.assets[0].children[0].name; // Use a sub-asset if possible
+                    }
                 }
+                const exampleRow = [exampleAsset, 'Monthly inspection', 'Inspections', 'Monthly', '1', '2.5', 'Open'];
 
                 const csvContent = "data:text/csv;charset=utf-8,"
                     + headers.join(",") + "\n"
@@ -529,7 +762,7 @@
                 doc.text(title, 14, 22);
                 doc.setFontSize(11);
                 doc.setTextColor(100);
-                doc.text(`Plant: ${currentPlantName}`, 14, 30);
+                doc.text(`Location: ${currentLocationName}`, 14, 30);
                 doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 36);
 
                 let periodTasks = [];
@@ -541,8 +774,8 @@
                     periodTasks = tasks.filter(task => getScheduledWeeks(task).some(w => w >= start && w <= end));
                 }
 
-                const head = [['Asset', 'Sub-asset', 'Description', 'Type', 'Time (hrs)', 'Status']];
-                const body = periodTasks.map(t => [t.asset, t.subAsset, t.description, t.type, t.time, t.status]);
+                const head = [['Asset', 'Description', 'Type', 'Time (hrs)', 'Status']];
+                const body = periodTasks.map(t => [t.asset, t.description, t.type, t.time, t.status]);
 
                 if(body.length === 0){
                     doc.text("No tasks found for the selected period.", 14, 50);
@@ -556,96 +789,162 @@
                     });
                 }
                 
-                doc.save(`report_${currentPlantName.replace(/\s+/g, '_')}_${period.replace(/\s+/g, '_')}.pdf`);
+                doc.save(`report_${currentLocationName.replace(/\s+/g, '_')}_${period.replace(/\s+/g, '_')}.pdf`);
             };
 
 
             // --- DATA HANDLING ---
             const setupInitialData = async () => {
-                const plantsCollectionRef = collection(db, 'maintenance_plans', appId, 'plants');
-                const plantADocRef = doc(plantsCollectionRef, 'Plant A');
-                const plantBDocRef = doc(plantsCollectionRef, 'Plant B');
+                const locationsCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'locations');
+                const locationADocRef = doc(locationsCollectionRef, 'Location A');
+                const locationBDocRef = doc(locationsCollectionRef, 'Location B');
                 
                 try {
                     await runTransaction(db, async (transaction) => {
-                        const plantADoc = await transaction.get(plantADocRef);
-                        const plantBDoc = await transaction.get(plantBDocRef);
+                        const locationADoc = await transaction.get(locationADocRef);
+                        const locationBDoc = await transaction.get(locationBDocRef);
 
-                        if (!plantADoc.exists()) {
-                            transaction.set(plantADocRef, {
-                                name: 'Plant A',
+                        if (!locationADoc.exists()) {
+                            transaction.set(locationADocRef, {
+                                name: 'Location A',
                                 assets: [
-                                    { name: 'Line 1', subAssets: ['1.1 Packer', '1.2 Filler', '1.3 Labeler'] },
-                                    { name: 'Utilities', subAssets: ['Air Compressor', 'Boiler', 'Water System'] }
+                                    { id: crypto.randomUUID(), name: 'Line 1', children: [
+                                        { id: crypto.randomUUID(), name: '1.1 Packer', children: [] },
+                                        { id: crypto.randomUUID(), name: '1.2 Filler', children: [] },
+                                        { id: crypto.randomUUID(), name: '1.3 Labeler', children: [] }
+                                    ]},
+                                    { id: crypto.randomUUID(), name: 'Utilities', children: [
+                                        { id: crypto.randomUUID(), name: 'Air Compressor', children: [] },
+                                        { id: crypto.randomUUID(), name: 'Boiler', children: [] },
+                                        { id: crypto.randomUUID(), name: 'Water System', children: [] }
+                                    ]}
                                 ]
                             });
-                            const tasksForA = doc(collection(plantADocRef, 'tasks'));
-                            transaction.set(tasksForA, { asset: 'Line 1', subAsset: '1.1 Packer', description: 'Inspect conveyor belt', type: 'Inspections', frequency: 'Monthly', startWeek: 2, time: 1.5, status: 'Completed' });
+                            const task1A = doc(collection(locationADocRef, 'tasks'));
+                            transaction.set(task1A, { asset: '1.1 Packer', description: 'Inspect conveyor belt', type: 'Inspections', frequency: 'Monthly', startWeek: 2, time: 1.5, status: 'Completed' });
+                            const task2A = doc(collection(locationADocRef, 'tasks'));
+                            transaction.set(task2A, { asset: 'Boiler', description: 'Check pressure valve', type: 'Preventive Maintenance (PM)', frequency: 'Weekly', startWeek: 1, time: 0.5, status: 'Open' });
                         }
 
-                        if (!plantBDoc.exists()) {
-                            transaction.set(plantBDocRef, {
-                                name: 'Plant B',
+                        if (!locationBDoc.exists()) {
+                            transaction.set(locationBDocRef, {
+                                name: 'Location B',
                                 assets: [
-                                    { name: 'Main Assembly', subAssets: ['Robot Arm 1', 'Welding Station'] },
-                                    { name: 'Finishing Line', subAssets: ['Paint Booth', 'Drying Oven'] }
+                                    { id: crypto.randomUUID(), name: 'Main Assembly', children: [
+                                        { id: crypto.randomUUID(), name: 'Robot Arm 1', children: [] },
+                                        { id: crypto.randomUUID(), name: 'Welding Station', children: [] }
+                                    ]},
+                                    { id: crypto.randomUUID(), name: 'Finishing Line', children: [
+                                        { id: crypto.randomUUID(), name: 'Paint Booth', children: [] },
+                                        { id: crypto.randomUUID(), name: 'Drying Oven', children: [] }
+                                    ]}
                                 ]
                             });
-                             const tasksForB = doc(collection(plantBDocRef, 'tasks'));
-                             transaction.set(tasksForB, { asset: 'Main Assembly', subAsset: 'Robot Arm 1', description: 'Calibrate sensors', type: 'Corrective Maintenance (CM)', frequency: 'Quarterly', startWeek: 5, time: 4, status: 'Open' });
+                            const task1B = doc(collection(locationBDocRef, 'tasks'));
+                            transaction.set(task1B, { asset: 'Robot Arm 1', description: 'Calibrate sensors', type: 'Corrective Maintenance (CM)', frequency: 'Quarterly', startWeek: 5, time: 4, status: 'Open' });
                         }
                     });
                 } catch (e) {
                     console.error("Transaction for initial data failed: ", e);
+                    showAlert("Could not create initial sample data. You may need to enable Firestore.", true);
                 }
             };
 
-            const listenForPlants = () => {
-                 const plantsCollectionRef = collection(db, 'maintenance_plans', appId, 'plants');
-                onSnapshot(plantsCollectionRef, (snapshot) => {
-                    plantConfigs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    populatePlantSelector();
-                    populateEditPlantSelector();
-                    
-                    if (!currentPlantName && plantConfigs.length > 0) { switchPlant(plantConfigs[0].id); } 
-                    else if (currentPlantName) {
-                        renderAssetManager(currentPlantName);
-                        const plantConfig = plantConfigs.find(p => p.id === currentPlantName);
-                        const assetNames = plantConfig ? plantConfig.assets.map(a => a.name) : [];
-                        populateDropdown(filterAsset, assetNames, true);
+            const listenForGlobalSettings = () => {
+                const settingsRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'globalConfig');
+                unsubscribeSettings = onSnapshot(settingsRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        globalSettings = { ...defaultSettings, ...docSnap.data() };
+                    } else {
+                        globalSettings = { ...defaultSettings };
+                        setDoc(settingsRef, globalSettings).catch(e => console.error("Could not create global settings", e));
                     }
-                    if (plantConfigs.length === 0) { hideLoading(); }
-                }, error => console.error("Error fetching plants:", error));
+                    
+                    // Re-populate all dropdowns that depend on these settings
+                    populateDropdown(document.getElementById('maintenance-type'), globalSettings.maintenanceTypes);
+                    populateDropdown(document.getElementById('frequency'), globalSettings.frequencies);
+                    populateDropdown(document.getElementById('status'), globalSettings.statuses);
+                    populateDropdown(filterType, globalSettings.maintenanceTypes, true);
+                    populateDropdown(filterStatus, globalSettings.statuses, true);
+
+                    // Re-render settings tab lists
+                    renderSettingsLists();
+                }, error => {
+                    console.error("Error fetching global settings:", error);
+                    showAlert(`Error fetching settings: ${error.message}`, true);
+                });
             };
 
-            const switchPlant = (plantName) => {
-                if (currentPlantName === plantName) return;
-                currentPlantName = plantName;
-                plantSelector.value = plantName;
-                const plantConfig = plantConfigs.find(p => p.id === plantName);
-                const assetNames = plantConfig ? plantConfig.assets.map(a => a.name) : [];
-                populateDropdown(filterAsset, assetNames, true);
-                unsubscribeTasks();
-                const tasksCollectionRef = collection(db, 'maintenance_plans', appId, 'plants', plantName, 'tasks');
+            const listenForLocations = () => {
+                const locationsCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'locations');
+                onSnapshot(locationsCollectionRef, (snapshot) => {
+                    locationConfigs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    populateLocationSelector();
+                    populateEditLocationSelector();
+                    
+                    if (!currentLocationName && locationConfigs.length > 0) { 
+                        switchLocation(locationConfigs[0].id); 
+                    } else if (currentLocationName) {
+                        // Refresh asset manager and filters if current location data changed
+                        const locationConfig = locationConfigs.find(p => p.id === currentLocationName);
+                        if (locationConfig) {
+                            renderAssetManager(currentLocationName); // Re-render tree
+                            populateAssetTreeOptions(filterAsset, locationConfig.assets || [], true);
+                        } else {
+                            // The location we were watching was deleted
+                            currentLocationName = null;
+                            tasks = [];
+                            if (locationConfigs.length > 0) {
+                                switchLocation(locationConfigs[0].id);
+                            }
+                        }
+                    }
+                    if (locationConfigs.length === 0) { 
+                        hideLoading(); 
+                        showAlert("No locations found. Please add a location in the Settings tab.");
+                    }
+                }, error => {
+                    console.error("Error fetching locations:", error);
+                    showAlert(`Error fetching locations: ${error.message}`, true);
+                    hideLoading();
+                });
+            };
+
+            const switchLocation = (locationName) => {
+                if (!locationName || currentLocationName === locationName) return;
+                showLoading();
+                currentLocationName = locationName;
+                locationSelector.value = locationName;
+                
+                const locationConfig = locationConfigs.find(p => p.id === locationName);
+                populateAssetTreeOptions(filterAsset, locationConfig?.assets || [], true);
+                
+                unsubscribeTasks(); // Stop listening to old location's tasks
+                
+                const tasksCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'locations', locationName, 'tasks');
                 unsubscribeTasks = onSnapshot(tasksCollectionRef, (snapshot) => {
                     tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     applyFiltersAndRender();
                     renderWeeklyView(weekSelector.value || 1);
                     renderYearView();
                     hideLoading();
-                }, error => { console.error(`Error fetching tasks for ${plantName}:`, error); hideLoading(); });
+                }, error => { 
+                    console.error(`Error fetching tasks for ${locationName}:`, error); 
+                    showAlert(`Error fetching tasks: ${error.message}`, true);
+                    hideLoading(); 
+                });
             };
 
             // --- MODAL HANDLING ---
             const openModal = (task = null) => {
                 taskForm.reset();
-                populateAssetDropdown();
+                const locationConfig = locationConfigs.find(p => p.id === currentLocationName);
+                populateAssetTreeOptions(document.getElementById('asset'), locationConfig?.assets || []);
+                
                 if (task) {
                     document.getElementById('modal-title').textContent = 'Edit Task';
                     document.getElementById('task-id').value = task.id;
                     document.getElementById('asset').value = task.asset;
-                    populateSubAssetDropdown(task.asset);
-                    document.getElementById('sub-asset').value = task.subAsset;
                     document.getElementById('task-description').value = task.description;
                     document.getElementById('maintenance-type').value = task.type;
                     document.getElementById('frequency').value = task.frequency;
@@ -655,79 +954,102 @@
                 } else {
                     document.getElementById('modal-title').textContent = 'Add New Task';
                     document.getElementById('task-id').value = '';
-                    const plantConfig = plantConfigs.find(p => p.id === currentPlantName);
-                    if (plantConfig && plantConfig.assets.length > 0) {
-                       populateSubAssetDropdown(plantConfig.assets[0].name);
-                    }
                 }
-                modal.classList.remove('hidden');
-                setTimeout(() => modal.classList.remove('opacity-0'), 10);
+                showModal(modal);
             };
 
             const closeModal = () => {
-                modal.classList.add('opacity-0');
-                setTimeout(() => modal.classList.add('hidden'), 300);
+                hideModal(modal);
             };
             
             // --- DROPDOWN POPULATION ---
-            const populatePlantSelector = () => {
-                const currentVal = plantSelector.value;
-                plantSelector.innerHTML = '';
-                plantConfigs.forEach(plant => { plantSelector.innerHTML += `<option value="${plant.id}">${plant.name}</option>`; });
-                if (currentVal) plantSelector.value = currentVal;
+            const populateLocationSelector = () => {
+                const currentVal = locationSelector.value;
+                locationSelector.innerHTML = '';
+                locationConfigs.forEach(loc => { locationSelector.innerHTML += `<option value="${loc.id}">${loc.name}</option>`; });
+                if (currentVal) locationSelector.value = currentVal;
             };
 
-            const populateEditPlantSelector = () => {
-                const currentVal = editPlantSelector.value;
-                editPlantSelector.innerHTML = '<option value="" disabled selected>-- Select a plant --</option>';
-                plantConfigs.forEach(plant => { editPlantSelector.innerHTML += `<option value="${plant.id}">${plant.name}</option>`; });
-                if (currentVal) editPlantSelector.value = currentVal;
+            const populateEditLocationSelector = () => {
+                const currentVal = editLocationSelector.value;
+                editLocationSelector.innerHTML = '<option value="" disabled selected>-- Select a location --</option>';
+                locationConfigs.forEach(loc => { editLocationSelector.innerHTML += `<option value="${loc.id}">${loc.name}</option>`; });
+                if (currentVal) editLocationSelector.value = currentVal;
             };
 
             const populateDropdown = (selectEl, options, includeAll = false) => {
-                 selectEl.innerHTML = '';
+                const currentVal = selectEl.value;
+                selectEl.innerHTML = '';
                 if(includeAll) { selectEl.innerHTML += `<option value="All">All</option>`; }
                 if (options) {
                     options.forEach(option => { selectEl.innerHTML += `<option value="${option}">${option}</option>`; });
                 }
+                if (currentVal && Array.from(selectEl.options).some(o => o.value === currentVal)) {
+                    selectEl.value = currentVal;
+                }
             };
 
-            const populateAssetDropdown = () => {
-                const assetSelect = document.getElementById('asset');
-                assetSelect.innerHTML = '';
-                const plantConfig = plantConfigs.find(p => p.id === currentPlantName);
-                if (plantConfig && plantConfig.assets) {
-                    plantConfig.assets.forEach(asset => { assetSelect.innerHTML += `<option value="${asset.name}">${asset.name}</option>`; });
+            // New function to populate dropdowns with the asset tree
+            const populateAssetTreeOptions = (selectEl, assets, includeAll = false) => {
+                const currentVal = selectEl.value;
+                let optionsHtml = includeAll ? '<option value="All">All</option>' : '';
+
+                const getOptions = (nodes, level) => {
+                    let html = '';
+                    const indent = '&nbsp;&nbsp;'.repeat(level);
+                    const prefix = level > 0 ? 'L ' : '';
+                    nodes.forEach(node => {
+                        html += `<option value="${node.name}">${indent}${prefix}${node.name}</option>`;
+                        if (node.children && node.children.length > 0) {
+                            html += getOptions(node.children, level + 1);
+                        }
+                    });
+                    return html;
+                };
+
+                optionsHtml += getOptions(assets, 0);
+                selectEl.innerHTML = optionsHtml;
+
+                if (currentVal && Array.from(selectEl.options).some(o => o.value === currentVal)) {
+                    selectEl.value = currentVal;
                 }
             };
-            
-            const populateSubAssetDropdown = (assetName) => {
-                const subAssetSelect = document.getElementById('sub-asset');
-                subAssetSelect.innerHTML = '';
-                const plantConfig = plantConfigs.find(p => p.id === currentPlantName);
-                const selectedAsset = plantConfig?.assets?.find(a => a.name === assetName);
-                if (selectedAsset && selectedAsset.subAssets) {
-                    selectedAsset.subAssets.forEach(sub => { subAssetSelect.innerHTML += `<option value="${sub}">${sub}</option>`; });
-                }
-            };
-            
+
             // --- RENDERING FUNCTIONS ---
+            const renderSettingsLists = () => {
+                const renderList = (key) => {
+                    const container = document.getElementById(`${key}-list`);
+                    if (!container) return;
+                    container.innerHTML = '';
+                    globalSettings[key].forEach(item => {
+                        container.innerHTML += `
+                            <div class="flex justify-between items-center bg-gray-50 p-2 rounded">
+                                <span class="text-sm text-gray-700">${item}</span>
+                                <button class="delete-setting-btn text-red-500 hover:text-red-700 font-bold text-xs" data-list-key="${key}" data-value="${item}">✕</button>
+                            </div>
+                        `;
+                    });
+                };
+                renderList('maintenanceTypes');
+                renderList('frequencies');
+                renderList('statuses');
+            };
+
             const renderPlanningTable = (filteredTasks = tasks) => {
                 planningTableBody.innerHTML = '';
                 if(filteredTasks.length === 0) {
-                    planningTableBody.innerHTML = `<tr><td colspan="8" class="text-center py-10 text-gray-500">No tasks found.</td></tr>`;
+                    planningTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-500">No tasks found.</td></tr>`;
                     return;
                 }
                 filteredTasks.forEach(task => {
                     const row = document.createElement('tr');
                     row.innerHTML = `
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${task.asset}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${task.subAsset}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate" title="${task.description}">${task.description}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${task.type}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${task.frequency}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${task.time}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${staticDb.statusColors[task.status].replace('bg-','bg-').replace('-500','-100')} ${staticDb.statusColors[task.status].replace('bg-','text-').replace('-500','-800')}">${task.status}</span></td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${globalSettings.statusColors[task.status] || 'bg-gray-100 text-gray-800'}">${task.status}</span></td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <button class="edit-btn text-indigo-600 hover:text-indigo-900" data-id="${task.id}">Edit</button>
                             <button class="delete-btn text-red-600 hover:text-red-900 ml-4" data-id="${task.id}">Delete</button>
@@ -738,7 +1060,7 @@
             
             const renderWeeklyView = (weekNumber) => {
                 if(!weekNumber || weekNumber < 1 || weekNumber > 52) {
-                    document.getElementById('weekly-task-list').innerHTML = `<tr><td colspan="5" class="text-center py-10 text-gray-500">Select a week number between 1 and 52.</td></tr>`;
+                    document.getElementById('weekly-task-list').innerHTML = `<tr><td colspan="4" class="text-center py-10 text-gray-500">Select a week number between 1 and 52.</td></tr>`;
                     document.getElementById('weekly-hours-summary').innerHTML = `<p class="text-center text-gray-500">No data to display.</p>`;
                     return;
                 }
@@ -746,16 +1068,42 @@
                 document.getElementById('weekly-hours-title').textContent = `Total Hours for Week ${weekNumber}`;
                 const weeklyTasks = tasks.filter(task => getScheduledWeeks(task).includes(parseInt(weekNumber)));
                 const taskListBody = document.getElementById('weekly-task-list');
-                taskListBody.innerHTML = weeklyTasks.length === 0 ? `<tr><td colspan="5" class="text-center py-10 text-gray-500">No tasks scheduled for this week.</td></tr>` :
+                taskListBody.innerHTML = weeklyTasks.length === 0 ? `<tr><td colspan="4" class="text-center py-10 text-gray-500">No tasks scheduled for this week.</td></tr>` :
                     weeklyTasks.map(task => `<tr>
-                        <td class="px-4 py-2 text-sm text-gray-900">${task.asset}</td> <td class="px-4 py-2 text-sm text-gray-500">${task.subAsset}</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">${task.asset}</td>
                         <td class="px-4 py-2 text-sm text-gray-500">${task.description}</td> <td class="px-4 py-2 text-sm text-gray-500">${task.time}</td>
-                        <td class="px-4 py-2 text-sm"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${staticDb.statusColors[task.status].replace('bg-','bg-').replace('-500','-100')} ${staticDb.statusColors[task.status].replace('bg-','text-').replace('-500','-800')}">${task.status}</span></td>
+                        <td class="px-4 py-2 text-sm"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${globalSettings.statusColors[task.status] || 'bg-gray-100 text-gray-800'}">${task.status}</span></td>
                         </tr>`).join('');
                 
                 const hoursSummary = document.getElementById('weekly-hours-summary');
                 hoursSummary.innerHTML = '';
-                const hoursByAsset = weeklyTasks.reduce((acc, task) => { acc[task.asset] = (acc[task.asset] || 0) + task.time; return acc; }, {});
+                
+                // Group hours by top-level asset
+                const locationConfig = locationConfigs.find(p => p.id === currentLocationName);
+                const topLevelAssetNames = (locationConfig?.assets || []).map(a => a.name);
+
+                const getTopLevelAsset = (assetName) => {
+                    if (topLevelAssetNames.includes(assetName)) return assetName;
+                    
+                    const findInTree = (nodes) => {
+                        for(const node of nodes) {
+                            if (node.children?.some(child => child.name === assetName)) return node.name;
+                            if (node.children) {
+                                const parentName = findInTree(node.children);
+                                if (parentName) return node.name; // Return the top-level parent
+                            }
+                        }
+                        return null;
+                    };
+                    return findInTree(locationConfig?.assets || []) || 'Other';
+                };
+
+                const hoursByAsset = weeklyTasks.reduce((acc, task) => { 
+                    const topLevel = getTopLevelAsset(task.asset);
+                    acc[topLevel] = (acc[topLevel] || 0) + task.time; 
+                    return acc; 
+                }, {});
+
                 let totalHours = 0;
                 Object.entries(hoursByAsset).forEach(([asset, hours]) => {
                     hoursSummary.innerHTML += `<div class="p-3 bg-gray-50 rounded-lg"><div class="flex justify-between items-center"><span class="font-semibold text-gray-700">${asset}</span><span class="font-bold text-indigo-600">${hours.toFixed(1)} hrs</span></div></div>`;
@@ -772,11 +1120,11 @@
                 headerHtml += `</div>`;
                 
                 let bodyHtml = tasks.map(task => {
-                    let row = `<div class="grid year-view-grid border-b border-gray-200"><div class="text-xs font-medium text-gray-600 sticky left-0 bg-white z-10 p-2 border-r truncate" title="${task.asset} - ${task.subAsset}">${task.asset} - ${task.subAsset}</div>`;
+                    let row = `<div class="grid year-view-grid border-b border-gray-200"><div class="text-xs font-medium text-gray-600 sticky left-0 bg-white z-10 p-2 border-r truncate" title="${task.asset}">${task.asset}</div>`;
                     const scheduledWeeks = getScheduledWeeks(task);
                     for (let i = 1; i <= 52; i++) {
                         const isScheduled = scheduledWeeks.includes(i);
-                        const color = isScheduled ? staticDb.statusColors[task.status] || 'bg-gray-400' : 'bg-white';
+                        const color = isScheduled ? (globalSettings.statusColors[task.status] || 'bg-gray-400') : 'bg-white';
                         row += `<div class="text-center border-l ${color} h-6" title="Week ${i}: ${isScheduled ? task.description : 'No task'}"></div>`;
                     }
                     row += `</div>`;
@@ -789,15 +1137,19 @@
             const renderDashboard = (filteredTasks = tasks) => {
                 const statusChart = document.getElementById('status-chart');
                 statusChart.innerHTML = '';
-                const statusCounts = staticDb.statuses.reduce((acc, status) => ({ ...acc, [status]: 0 }), {});
-                filteredTasks.forEach(task => statusCounts[task.status]++);
+                const statusCounts = globalSettings.statuses.reduce((acc, status) => ({ ...acc, [status]: 0 }), {});
+                filteredTasks.forEach(task => {
+                    if (statusCounts[task.status] !== undefined) {
+                        statusCounts[task.status]++;
+                    }
+                });
                 const totalTasks = filteredTasks.length;
                 if(totalTasks === 0) { statusChart.innerHTML = `<p class="text-center py-10 text-gray-500">No data for current filters.</p>`; }
                 else {
-                    staticDb.statuses.forEach(status => {
+                    globalSettings.statuses.forEach(status => {
                         const count = statusCounts[status];
                         const percentage = ((count / totalTasks) * 100).toFixed(1);
-                        statusChart.innerHTML += `<div><div class="flex justify-between mb-1"><span class="text-base font-medium text-gray-700">${status} (${count})</span><span class="text-sm font-medium text-gray-500">${percentage}%</span></div><div class="w-full bg-gray-200 rounded-full h-2.5"><div class="${staticDb.statusColors[status]} h-2.5 rounded-full" style="width: ${percentage}%"></div></div></div>`;
+                        statusChart.innerHTML += `<div><div class="flex justify-between mb-1"><span class="text-base font-medium text-gray-700">${status} (${count})</span><span class="text-sm font-medium text-gray-500">${percentage}%</span></div><div class="w-full bg-gray-200 rounded-full h-2.5"><div class="${globalSettings.statusColors[status] || 'bg-gray-400'} h-2.5 rounded-full" style="width: ${percentage}%"></div></div></div>`;
                     });
                 }
 
@@ -808,14 +1160,14 @@
                 const maxHours = Math.max(...weeklyHours, 1);
                 weeklyHours.forEach((hours, index) => {
                     const height = (hours / maxHours) * 100;
-                    workloadChart.innerHTML += `<div class="flex-1 group flex flex-col items-center"><span class="text-xs text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">${hours.toFixed(1)}h</span><div class="chart-bar w-full bg-indigo-200 hover:bg-indigo-400 rounded-t" style="height: ${height}%" title="Week ${index + 1}: ${hours.toFixed(1)} hours"></div><span class="text-xs text-gray-400">${index+1}</span></div>`;
+                    workloadChart.innerHTML += `<div class="flex-1 group flex flex-col items-center"><span class="text-xs text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">${hours.toFixed(1)}h</span><div class="chart-bar w-full bg-indigo-200 hover:bg-indigo-400 rounded-t" style="height: ${height > 0 ? Math.max(height, 2) : 0}%" title="Week ${index + 1}: ${hours.toFixed(1)} hours"></div><span class="text-xs text-gray-400">${index+1}</span></div>`;
                 });
 
                 const urgentTasksList = document.getElementById('urgent-tasks-list');
                 const urgentTasks = filteredTasks.filter(t => t.status === 'Open' || t.status === 'Postponed');
                 if(urgentTasks.length > 0) {
                     let table = `<table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr><th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Asset</th><th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Task</th><th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th></tr></thead><tbody>`;
-                    urgentTasks.forEach(task => { table += `<tr><td class="px-4 py-2 text-sm font-medium">${task.asset} - ${task.subAsset}</td><td class="px-4 py-2 text-sm text-gray-600">${task.description}</td><td class="px-4 py-2 text-sm"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${staticDb.statusColors[task.status].replace('bg-','bg-').replace('-500','-100')} ${staticDb.statusColors[task.status].replace('bg-','text-').replace('-500','-800')}">${task.status}</span></td></tr>`; });
+                    urgentTasks.forEach(task => { table += `<tr><td class="px-4 py-2 text-sm font-medium">${task.asset}</td><td class="px-4 py-2 text-sm text-gray-600">${task.description}</td><td class="px-4 py-2 text-sm"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${globalSettings.statusColors[task.status] || 'bg-gray-100 text-gray-800'}">${task.status}</span></td></tr>`; });
                     table += `</tbody></table>`;
                     urgentTasksList.innerHTML = table;
                 } else { urgentTasksList.innerHTML = `<p class="text-center py-8 text-gray-500">No open or postponed tasks found.</p>`; }
@@ -825,27 +1177,137 @@
                 const selectedAsset = filterAsset.value;
                 const selectedType = filterType.value;
                 const selectedStatus = filterStatus.value;
-                const filtered = tasks.filter(task => (selectedAsset === 'All' || task.asset === selectedAsset) && (selectedType === 'All' || task.type === selectedType) && (selectedStatus === 'All' || task.status === selectedStatus));
+                
+                const locationConfig = locationConfigs.find(p => p.id === currentLocationName);
+                const allChildAssets = (assetName) => {
+                    let assets = [assetName];
+                    const findChildren = (nodes) => {
+                        for (const node of nodes) {
+                            if (node.name === assetName && node.children) {
+                                return node.children.flatMap(child => allChildAssets(child.name));
+                            }
+                            if (node.children) {
+                                const found = findChildren(node.children);
+                                if (found) return found;
+                            }
+                        }
+                        return [];
+                    };
+                    return assets.concat(findChildren(locationConfig?.assets || []));
+                };
+                
+                const assetsToFilter = selectedAsset === 'All' ? [] : allChildAssets(selectedAsset);
+
+                const filtered = tasks.filter(task => 
+                    (selectedAsset === 'All' || assetsToFilter.includes(task.asset)) && 
+                    (selectedType === 'All' || task.type === selectedType) && 
+                    (selectedStatus === 'All' || task.status === selectedStatus)
+                );
                 renderDashboard(filtered);
                 renderPlanningTable(filtered);
             };
 
-            const renderAssetManager = (plantName) => {
-                const plantConfig = plantConfigs.find(p => p.id === plantName);
-                if (!plantConfig) { assetManagerDiv.classList.add('hidden'); return; }
-                let html = `<div class="border-t pt-4 space-y-4"><div class="flex justify-between items-center"><h4 class="text-md font-semibold text-gray-800">Assets for ${plantConfig.name}</h4><button id="add-asset-btn" class="bg-blue-500 hover:bg-blue-600 text-white text-sm font-bold py-1 px-3 rounded-md">Add Asset</button></div>`;
-                if (plantConfig.assets && plantConfig.assets.length > 0) {
-                    plantConfig.assets.forEach((asset, assetIndex) => {
-                        html += `<div class="bg-gray-50 p-3 rounded-lg"><div class="flex justify-between items-center"><p class="font-semibold text-gray-700">${asset.name}</p><div><button class="add-sub-asset-btn text-green-600 hover:text-green-800 text-sm font-medium mr-3" data-asset-index="${assetIndex}">Add Sub-asset</button><button class="delete-asset-btn text-red-500 hover:text-red-700 font-bold" data-asset-index="${assetIndex}">✕</button></div></div><ul class="mt-2 pl-4 list-disc list-inside space-y-1">`;
-                        if (asset.subAssets && asset.subAssets.length > 0) {
-                             asset.subAssets.forEach((subAsset, subAssetIndex) => { html += `<li class="text-sm text-gray-600 flex justify-between items-center"><span>${subAsset}</span><button class="delete-sub-asset-btn text-red-500 hover:text-red-700 font-bold text-xs" data-asset-index="${assetIndex}" data-sub-asset-index="${subAssetIndex}">✕</button></li>`; });
-                        } else { html += `<li class="text-sm text-gray-400 italic">No sub-assets</li>`; }
-                        html += `</ul></div>`;
-                    });
-                } else { html += `<p class="text-center py-4 text-gray-500">No assets defined for this plant.</p>`; }
+            // --- Asset Hierarchy Functions ---
+            const renderAssetManager = (locationName) => {
+                const locationConfig = locationConfigs.find(p => p.id === locationName);
+                if (!locationConfig) { assetManagerDiv.classList.add('hidden'); return; }
+
+                const renderAssetNode = (node, level) => {
+                    const isExpanded = expandedAssetNodes.has(node.id);
+                    const hasChildren = node.children && node.children.length > 0;
+                    const childrenHtml = (isExpanded && hasChildren) ? node.children.map(child => renderAssetNode(child, level + 1)).join('') : '';
+                    
+                    return `
+                        <div class="asset-node-container" style="margin-left: ${level * 20}px;">
+                            <div class="asset-node" data-id="${node.id}">
+                                <span class="toggle-expand-btn ${hasChildren ? '' : 'empty'}" data-id="${node.id}">
+                                    ${hasChildren ? (isExpanded ? '−' : '+') : ' '}
+                                </span>
+                                <div class="asset-node-content">
+                                    <span class="text-sm font-medium text-gray-700">${node.name}</span>
+                                </div>
+                                <div class="asset-actions">
+                                    <button title="Add Child" class="asset-action-btn add-child-btn" data-id="${node.id}">
+                                        <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                                    </button>
+                                    <button title="Edit" class="asset-action-btn edit-asset-btn" data-id="${node.id}" data-name="${node.name}">
+                                        <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                    </button>
+                                    <button title="Delete" class="asset-action-btn delete-asset-btn" data-id="${node.id}" data-name="${node.name}">
+                                        <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="asset-children">${childrenHtml}</div>
+                        </div>
+                    `;
+                };
+
+                let html = `<div class="border-t pt-4 space-y-4"><div class="flex justify-between items-center"><h4 class="text-md font-semibold text-gray-800">Assets for ${locationConfig.name}</h4><button id="add-asset-btn" class="bg-blue-500 hover:bg-blue-600 text-white text-sm font-bold py-1 px-3 rounded-md">Add Top-Level Asset</button></div>`;
+                if (locationConfig.assets && locationConfig.assets.length > 0) {
+                    html += locationConfig.assets.map(asset => renderAssetNode(asset, 0)).join('');
+                } else {
+                    html += `<p class="text-center py-4 text-gray-500">No assets defined for this location.</p>`;
+                }
                 html += `</div>`;
                 assetManagerDiv.innerHTML = html;
                 assetManagerDiv.classList.remove('hidden');
+            };
+
+            // Recursive helper functions for tree modification
+            const findNode = (nodes, id) => {
+                for (const node of nodes) {
+                    if (node.id === id) return node;
+                    if (node.children) {
+                        const found = findNode(node.children, id);
+                        if (found) return found;
+                    }
+                }
+                return null;
+            };
+
+            const addNode = (nodes, parentId, newNode) => {
+                if (parentId === null) { // Adding top-level asset
+                    nodes.push(newNode);
+                    return true;
+                }
+                for (const node of nodes) {
+                    if (node.id === parentId) {
+                        if (!node.children) node.children = [];
+                        node.children.push(newNode);
+                        return true;
+                    }
+                    if (node.children && addNode(node.children, parentId, newNode)) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+
+            const updateNode = (nodes, id, newName) => {
+                for (const node of nodes) {
+                    if (node.id === id) {
+                        node.name = newName;
+                        return true;
+                    }
+                    if (node.children && updateNode(node.children, id, newName)) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+
+            const deleteNode = (nodes, id) => {
+                for (let i = 0; i < nodes.length; i++) {
+                    if (nodes[i].id === id) {
+                        nodes.splice(i, 1);
+                        return true;
+                    }
+                    if (nodes[i].children && deleteNode(nodes[i].children, id)) {
+                        return true;
+                    }
+                }
+                return false;
             };
             
             // --- CSV IMPORT ---
@@ -853,56 +1315,146 @@
                 const file = event.target.files[0]; if (!file) return;
                 const reader = new FileReader();
                 reader.onload = async (e) => {
-                    const { tasksToUpload, skippedCount } = parseCsv(e.target.result);
-                    if (tasksToUpload.length > 0) {
+                    const { tasksToUpload, tasksToUpdate, skippedCount, error } = parseCsv(e.target.result);
+                    if (error) {
+                        showAlert(error, true);
+                    } else if (tasksToUpload.length > 0 || tasksToUpdate.length > 0) {
                         showLoading();
-                        await uploadTasks(tasksToUpload);
+                        await processCsvUpload(tasksToUpload, tasksToUpdate);
                         hideLoading();
-                        alert(`Successfully imported ${tasksToUpload.length} tasks. Skipped ${skippedCount} rows.`);
-                    } else { alert(`Import failed. No valid tasks found. Skipped ${skippedCount} rows.`); }
-                    csvFileInput.value = '';
+                        showAlert(`CSV Import Complete:\n- ${tasksToUpload.length} new tasks created.\n- ${tasksToUpdate.length} tasks updated.\n- ${skippedCount} rows skipped.`);
+                    } else { showAlert(`Import failed. No valid tasks found to create or update. Skipped ${skippedCount} rows.`, true); }
+                    csvFileInput.value = ''; // Reset file input
                 };
                 reader.readAsText(file);
             };
 
             const parseCsv = (csvText) => {
                 const lines = csvText.split(/\r\n|\n/).filter(line => line.trim() !== '');
-                if (lines.length < 2) return { tasksToUpload: [], skippedCount: lines.length };
+                if (lines.length < 2) return { tasksToUpload: [], tasksToUpdate: [], skippedCount: lines.length, error: null };
+                
                 const headers = lines[0].split(',').map(h => h.trim());
-                const requiredHeaders = ['asset', 'subAsset', 'description', 'type', 'frequency', 'startWeek', 'time', 'status'];
+                const requiredHeaders = ['asset', 'description', 'type', 'frequency', 'startWeek', 'time', 'status'];
                 if (!requiredHeaders.every(h => headers.includes(h))) {
-                    alert('CSV is missing required headers: ' + requiredHeaders.join(', '));
-                    return { tasksToUpload: [], skippedCount: lines.length - 1 };
+                    return { tasksToUpload: [], tasksToUpdate: [], skippedCount: lines.length - 1, error: 'CSV is missing required headers:\n' + requiredHeaders.join(', ') };
                 }
-                const tasksToUpload = []; let skippedCount = 0;
-                const currentPlantConfig = plantConfigs.find(p => p.id === currentPlantName);
-                if (!currentPlantConfig) { alert('Cannot import: No plant selected.'); return { tasksToUpload: [], skippedCount: lines.length - 1 }; }
+                
+                const tasksToUpload = []; 
+                const tasksToUpdate = [];
+                let skippedCount = 0;
+                
+                const locationConfig = locationConfigs.find(p => p.id === currentLocationName);
+                if (!locationConfig) { return { tasksToUpload: [], tasksToUpdate: [], skippedCount: lines.length - 1, error: 'Cannot import: No location selected.' }; }
+                
+                // Create a flat list of all valid asset names for validation
+                const allAssetNames = new Set();
+                const collectAssetNames = (nodes) => {
+                    nodes.forEach(node => {
+                        allAssetNames.add(node.name);
+                        if(node.children) collectAssetNames(node.children);
+                    });
+                };
+                collectAssetNames(locationConfig.assets || []);
+
                 for (let i = 1; i < lines.length; i++) {
                     const values = lines[i].split(',');
-                    const rowData = headers.reduce((obj, h, idx) => { obj[h] = values[idx] ? values[idx].trim() : ''; return obj; }, {});
-                    const assetConfig = currentPlantConfig.assets.find(a => a.name === rowData.asset);
-                    const subAssetExists = assetConfig && assetConfig.subAssets.includes(rowData.subAsset);
-                    if (assetConfig && subAssetExists) {
-                        tasksToUpload.push({
-                            asset: rowData.asset, subAsset: rowData.subAsset, description: rowData.description || 'N/A',
-                            type: rowData.type || 'Corrective Maintenance (CM)', frequency: rowData.frequency || 'Monthly',
-                            startWeek: parseInt(rowData.startWeek) || 1, time: parseFloat(rowData.time) || 0, status: rowData.status || 'Open'
-                        });
-                    } else { skippedCount++; console.warn(`Skipping row ${i+1}: Asset/Sub-asset not found.`); }
+                    const rowData = headers.reduce((obj, h, idx) => { obj[h] = values[idx] ? values[idx].trim().replace(/"/g, '') : ''; return obj; }, {});
+
+                    // --- Validation ---
+                    if (!allAssetNames.has(rowData.asset)) {
+                        console.warn(`Skipping row ${i+1}: Asset "${rowData.asset}" not found in settings.`);
+                        skippedCount++;
+                        continue;
+                    }
+                    if (!globalSettings.maintenanceTypes.includes(rowData.type)) {
+                        console.warn(`Skipping row ${i+1}: Type "${rowData.type}" not valid. Defaulting to first.`);
+                        rowData.type = globalSettings.maintenanceTypes[0];
+                    }
+                    if (!globalSettings.frequencies.includes(rowData.frequency)) {
+                        console.warn(`Skipping row ${i+1}: Frequency "${rowData.frequency}" not valid. Defaulting to first.`);
+                        rowData.frequency = globalSettings.frequencies[0];
+                    }
+                    if (!globalSettings.statuses.includes(rowData.status)) {
+                        console.warn(`Skipping row ${i+1}: Status "${rowData.status}" not valid. Defaulting to first.`);
+                        rowData.status = globalSettings.statuses[0];
+                    }
+
+                    const taskData = {
+                        asset: rowData.asset,
+                        description: rowData.description || 'N/A',
+                        type: rowData.type,
+                        frequency: rowData.frequency,
+                        startWeek: parseInt(rowData.startWeek) || 1,
+                        time: parseFloat(rowData.time) || 0,
+                        status: rowData.status
+                    };
+
+                    if (rowData.id) {
+                        tasksToUpdate.push({ id: rowData.id, ...taskData });
+                    } else {
+                        tasksToUpload.push(taskData);
+                    }
                 }
-                return { tasksToUpload, skippedCount };
+                return { tasksToUpload, tasksToUpdate, skippedCount, error: null };
             };
 
-            const uploadTasks = async (tasksToUpload) => {
+            const processCsvUpload = async (tasksToUpload, tasksToUpdate) => {
                 const batch = writeBatch(db);
-                const tasksCollectionRef = collection(db, 'maintenance_plans', appId, 'plants', currentPlantName, 'tasks');
-                tasksToUpload.forEach(taskData => { const newDocRef = doc(tasksCollectionRef); batch.set(newDocRef, taskData); });
-                try { await batch.commit(); } catch (error) { console.error("Error batch uploading tasks:", error); alert("CSV import failed."); }
+                const tasksCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'locations', currentLocationName, 'tasks');
+                
+                tasksToUpload.forEach(taskData => { 
+                    const newDocRef = doc(tasksCollectionRef); 
+                    batch.set(newDocRef, taskData); 
+                });
+                
+                tasksToUpdate.forEach(taskData => {
+                    const docRef = doc(tasksCollectionRef, taskData.id);
+                    const { id, ...data } = taskData; // Remove id from data object
+                    batch.update(docRef, data);
+                });
+
+                try { 
+                    await batch.commit(); 
+                } catch (error) { 
+                    console.error("Error batch uploading/updating tasks:", error); 
+                    showAlert("CSV import failed: " + error.message, true); 
+                }
             };
 
             // --- EVENT LISTENERS ---
-            document.getElementById('asset').addEventListener('change', (e) => populateSubAssetDropdown(e.target.value));
-            plantSelector.addEventListener('change', (e) => switchPlant(e.target.value));
+            // --- Custom Modal Event Listeners ---
+            alertOkBtn.addEventListener('click', () => hideModal(alertModal));
+            
+            confirmNoBtn.addEventListener('click', () => {
+                hideModal(confirmModal);
+                confirmCallback = null;
+            });
+            
+            confirmYesBtn.addEventListener('click', () => {
+                hideModal(confirmModal);
+                if (confirmCallback) {
+                    confirmCallback();
+                }
+                confirmCallback = null;
+            });
+
+            promptCancelBtn.addEventListener('click', () => {
+                hideModal(promptModal);
+                promptCallback = null;
+            });
+            
+            promptForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const value = promptInput.value.trim();
+                if (promptCallback) {
+                    promptCallback(value); // Pass value even if empty, let callback decide
+                }
+                hideModal(promptModal);
+                promptCallback = null;
+            });
+
+            // --- Application Event Listeners ---
+            locationSelector.addEventListener('change', (e) => switchLocation(e.target.value));
             exportCsvBtn.addEventListener('click', () => {
                 const filtered = tasks.filter(task => (filterAsset.value === 'All' || task.asset === filterAsset.value) && (filterType.value === 'All' || task.type === filterType.value) && (filterStatus.value === 'All' || task.status === filterStatus.value));
                 exportToCsv(filtered);
@@ -911,7 +1463,7 @@
             importCsvBtn.addEventListener('click', () => csvFileInput.click());
             csvFileInput.addEventListener('change', handleCsvImport);
             navTabs.addEventListener('click', (e) => {
-                 if(e.target.tagName === 'BUTTON'){
+                if(e.target.tagName === 'BUTTON'){
                     document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
                     e.target.classList.add('active');
                     document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
@@ -922,64 +1474,322 @@
                 e.preventDefault();
                 const id = document.getElementById('task-id').value;
                 const taskData = {
-                    asset: document.getElementById('asset').value, subAsset: document.getElementById('sub-asset').value,
-                    description: document.getElementById('task-description').value, type: document.getElementById('maintenance-type').value,
-                    frequency: document.getElementById('frequency').value, startWeek: parseInt(document.getElementById('start-week').value),
-                    time: parseFloat(document.getElementById('required-time').value), status: document.getElementById('status').value
+                    asset: document.getElementById('asset').value,
+                    description: document.getElementById('task-description').value, 
+                    type: document.getElementById('maintenance-type').value,
+                    frequency: document.getElementById('frequency').value, 
+                    startWeek: parseInt(document.getElementById('start-week').value),
+                    time: parseFloat(document.getElementById('required-time').value), 
+                    status: document.getElementById('status').value
                 };
-                const tasksCollectionRef = collection(db, 'maintenance_plans', appId, 'plants', currentPlantName, 'tasks');
+                if (!taskData.asset) {
+                    showAlert("Asset cannot be empty.", true);
+                    return;
+                }
+                const tasksCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'locations', currentLocationName, 'tasks');
                 try {
                     if (id) { await setDoc(doc(tasksCollectionRef, id), taskData); } 
                     else { await addDoc(tasksCollectionRef, taskData); }
                     closeModal();
-                } catch(error) { console.error("Error saving task:", error); alert("Could not save task."); }
+                } catch(error) { 
+                    console.error("Error saving task:", error); 
+                    showAlert("Could not save task: " + error.message, true); 
+                }
             });
-            planningTableBody.addEventListener('click', async (e) => {
-                if (e.target.classList.contains('edit-btn')) { openModal(tasks.find(t => t.id === e.target.dataset.id)); }
+            planningTableBody.addEventListener('click', (e) => {
+                if (e.target.classList.contains('edit-btn')) { 
+                    openModal(tasks.find(t => t.id === e.target.dataset.id)); 
+                }
                 if (e.target.classList.contains('delete-btn')) {
-                    if(confirm('Are you sure you want to delete this task?')) {
-                        try { await deleteDoc(doc(db, 'maintenance_plans', appId, 'plants', currentPlantName, 'tasks', e.target.dataset.id)); } 
-                        catch(error) { console.error("Error deleting task:", error); alert("Could not delete task."); }
-                    }
+                    showConfirm('Are you sure you want to delete this task?', async () => {
+                        try { 
+                            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'locations', currentLocationName, 'tasks', e.target.dataset.id)); 
+                        } catch(error) { 
+                            console.error("Error deleting task:", error); 
+                            showAlert("Could not delete task: " + error.message, true); 
+                        }
+                    });
                 }
             });
-            addPlantForm.addEventListener('submit', async (e) => {
+            addLocationForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const newPlantName = document.getElementById('new-plant-name').value.trim();
-                if (!newPlantName) return;
-                const plantDocRef = doc(db, 'maintenance_plans', appId, 'plants', newPlantName);
+                const newLocationName = document.getElementById('new-location-name').value.trim();
+                if (!newLocationName) return;
+                
+                if (locationConfigs.some(loc => loc.name === newLocationName)) {
+                    showAlert("A location with this name already exists.", true);
+                    return;
+                }
+
+                const locationDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'locations', newLocationName);
                 try {
-                    await setDoc(plantDocRef, { name: newPlantName, assets: [] });
-                    addPlantForm.reset(); editPlantSelector.value = newPlantName; renderAssetManager(newPlantName);
-                } catch (error) { console.error("Error adding plant:", error); alert("Could not add plant."); }
+                    await setDoc(locationDocRef, { name: newLocationName, assets: [] });
+                    addLocationForm.reset(); 
+                    editLocationSelector.value = newLocationName; 
+                    renderAssetManager(newLocationName);
+                    showAlert(`Location "${newLocationName}" added successfully.`);
+                } catch (error) { 
+                    console.error("Error adding location:", error); 
+                    showAlert("Could not add location: " + error.message, true); 
+                }
             });
-            editPlantSelector.addEventListener('change', (e) => renderAssetManager(e.target.value));
+
+            // --- Location Management Listeners ---
+            editLocationSelector.addEventListener('change', (e) => {
+                expandedAssetNodes.clear(); // Clear expansion state when switching locations
+                renderAssetManager(e.target.value);
+                // Enable/disable buttons
+                const hasSelection = !!e.target.value;
+                renameLocationBtn.disabled = !hasSelection;
+                deleteLocationBtn.disabled = !hasSelection;
+            });
+
+            renameLocationBtn.addEventListener('click', () => {
+                const oldName = editLocationSelector.value;
+                if (!oldName) return;
+
+                showPrompt("Enter new location name:", async (newName) => {
+                    if (!newName || newName === oldName) return;
+
+                    if (locationConfigs.some(loc => loc.name === newName)) {
+                        showAlert(`A location named "${newName}" already exists.`, true);
+                        return;
+                    }
+                    
+                    showLoading();
+                    try {
+                        const locationsCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'locations');
+                        const oldDocRef = doc(locationsCollectionRef, oldName);
+                        const newDocRef = doc(locationsCollectionRef, newName);
+
+                        // 1. Get old location data
+                        const locationData = (await getDoc(oldDocRef)).data();
+                        locationData.name = newName; // Update name field
+
+                        // 2. Set new location doc
+                        await setDoc(newDocRef, locationData);
+
+                        // 3. Move all tasks
+                        const oldTasksRef = collection(oldDocRef, 'tasks');
+                        const newTasksRef = collection(newDocRef, 'tasks');
+                        const tasksSnapshot = await getDocs(oldTasksRef);
+                        
+                        const batch = writeBatch(db);
+
+                        tasksSnapshot.forEach(taskDoc => {
+                            // Copy task to new location
+                            batch.set(doc(newTasksRef, taskDoc.id), taskDoc.data());
+                            // Delete task from old location
+                            batch.delete(taskDoc.ref);
+                        });
+
+                        // 4. Delete old location doc
+                        batch.delete(oldDocRef);
+
+                        // 5. Commit all changes
+                        await batch.commit();
+
+                        // 6. Update UI
+                        editLocationSelector.value = newName; // This will trigger listeners
+                        switchLocation(newName); // Manually switch to be sure
+                        showAlert(`Location "${oldName}" renamed to "${newName}".`);
+
+                    } catch (error) {
+                        console.error("Error renaming location:", error);
+                        showAlert(`Error renaming location: ${error.message}`, true);
+                    } finally {
+                        hideLoading();
+                    }
+                }, "Rename Location", oldName);
+            });
+
+            deleteLocationBtn.addEventListener('click', () => {
+                const locationName = editLocationSelector.value;
+                if (!locationName) return;
+
+                showConfirm(`Are you sure you want to delete "${locationName}"? This will delete all associated assets and tasks permanently.`, async () => {
+                    showLoading();
+                    try {
+                        const locationsCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'locations');
+                        const locationDocRef = doc(locationsCollectionRef, locationName);
+                        
+                        // 1. Delete all tasks in sub-collection
+                        const tasksRef = collection(locationDocRef, 'tasks');
+                        const tasksSnapshot = await getDocs(tasksRef);
+                        
+                        const batch = writeBatch(db);
+                        tasksSnapshot.forEach(taskDoc => {
+                            batch.delete(taskDoc.ref);
+                        });
+
+                        // 2. Delete parent location doc
+                        batch.delete(locationDocRef);
+
+                        // 3. Commit changes
+                        await batch.commit();
+
+                        // 4. Update UI
+                        assetManagerDiv.classList.add('hidden');
+                        renameLocationBtn.disabled = true;
+                        deleteLocationBtn.disabled = true;
+                        
+                        // Switch to another location if one exists
+                        if (currentLocationName === locationName) {
+                            currentLocationName = null; // Force switch
+                            const remainingLocations = locationConfigs.filter(l => l.id !== locationName);
+                            if (remainingLocations.length > 0) {
+                                switchLocation(remainingLocations[0].id);
+                            } else {
+                                // No locations left
+                                locationSelector.innerHTML = '';
+                                editLocationSelector.innerHTML = '<option value="" disabled selected>-- Select a location --</option>';
+                                tasks = [];
+                                applyFiltersAndRender();
+                                renderWeeklyView(weekSelector.value || 1);
+                                renderYearView();
+                            }
+                        }
+                        
+                        showAlert(`Location "${locationName}" has been deleted.`);
+                    } catch (error) {
+                        console.error("Error deleting location:", error);
+                        showAlert(`Error deleting location: ${error.message}`, true);
+                    } finally {
+                        hideLoading();
+                    }
+                });
+            });
+            
+            // --- Asset Manager Event Delegation ---
             assetManagerDiv.addEventListener('click', async (e) => {
-                const plantName = editPlantSelector.value; if (!plantName) return;
-                const plantRef = doc(db, 'maintenance_plans', appId, 'plants', plantName);
-                const plantConfig = plantConfigs.find(p => p.id === plantName);
-                let assets = JSON.parse(JSON.stringify(plantConfig.assets || []));
-                if (e.target.id === 'add-asset-btn') {
-                    const assetName = prompt('Enter new asset name:');
-                    if (assetName && !assets.some(a => a.name === assetName)) { assets.push({ name: assetName, subAssets: [] }); await updateDoc(plantRef, { assets }); } 
-                    else if(assetName) { alert("Asset name already exists."); }
+                const locationName = editLocationSelector.value; if (!locationName) return;
+                const locationRef = doc(db, 'artifacts', appId, 'public', 'data', 'locations', locationName);
+                const locationConfig = locationConfigs.find(p => p.id === locationName);
+                if (!locationConfig) return;
+                
+                // Use structuredClone for a deep copy of the assets array
+                let assets = structuredClone(locationConfig.assets || []);
+
+                const btn = e.target.closest('.toggle-expand-btn');
+                if (btn && !btn.classList.contains('empty')) {
+                    const id = btn.dataset.id;
+                    if (expandedAssetNodes.has(id)) {
+                        expandedAssetNodes.delete(id);
+                    } else {
+                        expandedAssetNodes.add(id);
+                    }
+                    renderAssetManager(locationName); // Re-render the tree
+                    return; // Stop processing
                 }
-                if (e.target.classList.contains('delete-asset-btn')) {
-                    const assetIndex = parseInt(e.target.dataset.assetIndex);
-                    if (confirm(`Delete asset "${assets[assetIndex].name}"?`)) { assets.splice(assetIndex, 1); await updateDoc(plantRef, { assets }); }
+
+                if (e.target.closest('#add-asset-btn')) {
+                    showPrompt('Enter new top-level asset name:', async (assetName) => {
+                        if (assetName) { 
+                            const newNode = { id: crypto.randomUUID(), name: assetName, children: [] };
+                            addNode(assets, null, newNode); // null parentId = top level
+                            await updateDoc(locationRef, { assets });
+                            expandedAssetNodes.add(newNode.id); // Expand parent
+                        }
+                    });
                 }
-                if (e.target.classList.contains('add-sub-asset-btn')) {
-                    const assetIndex = parseInt(e.target.dataset.assetIndex);
-                    const subAssetName = prompt(`New sub-asset for "${assets[assetIndex].name}":`);
-                    if (subAssetName && !assets[assetIndex].subAssets.includes(subAssetName)) { assets[assetIndex].subAssets.push(subAssetName); await updateDoc(plantRef, { assets }); } 
-                    else if (subAssetName) { alert("Sub-asset name already exists."); }
+
+                const addChildBtn = e.target.closest('.add-child-btn');
+                if (addChildBtn) {
+                    const parentId = addChildBtn.dataset.id;
+                    showPrompt('Enter new sub-asset name:', async (assetName) => {
+                        if (assetName) { 
+                            const newNode = { id: crypto.randomUUID(), name: assetName, children: [] };
+                            addNode(assets, parentId, newNode);
+                            await updateDoc(locationRef, { assets });
+                            expandedAssetNodes.add(parentId); // Expand parent
+                        }
+                    });
                 }
-                if (e.target.classList.contains('delete-sub-asset-btn')) {
-                    const assetIndex = parseInt(e.target.dataset.assetIndex);
-                    const subAssetIndex = parseInt(e.target.dataset.subAssetIndex);
-                     if (confirm(`Delete sub-asset "${assets[assetIndex].subAssets[subAssetIndex]}"?`)) { assets[assetIndex].subAssets.splice(subAssetIndex, 1); await updateDoc(plantRef, { assets }); }
+
+                const editAssetBtn = e.target.closest('.edit-asset-btn');
+                if (editAssetBtn) {
+                    const id = editAssetBtn.dataset.id;
+                    const name = editAssetBtn.dataset.name;
+                    showPrompt('Enter new asset name:', async (newName) => {
+                        if (newName && newName !== name) {
+                            // We need to also update all tasks that reference this asset
+                            showLoading();
+                            const oldName = name;
+                            updateNode(assets, id, newName);
+                            await updateDoc(locationRef, { assets });
+                            
+                            // Update tasks
+                            const tasksToUpdate = tasks.filter(t => t.asset === oldName);
+                            if (tasksToUpdate.length > 0) {
+                                const batch = writeBatch(db);
+                                const tasksCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'locations', currentLocationName, 'tasks');
+                                tasksToUpdate.forEach(task => {
+                                    batch.update(doc(tasksCollectionRef, task.id), { asset: newName });
+                                });
+                                await batch.commit();
+                            }
+                            hideLoading();
+                            showAlert(`Asset renamed to "${newName}". ${tasksToUpdate.length} tasks were updated.`);
+                        }
+                    }, 'Edit Asset Name', name);
+                }
+
+                const deleteAssetBtn = e.target.closest('.delete-asset-btn');
+                if (deleteAssetBtn) {
+                    const id = deleteAssetBtn.dataset.id;
+                    const name = deleteAssetBtn.dataset.name;
+                    // Check if tasks are associated
+                    const associatedTasks = tasks.filter(t => t.asset === name);
+                    if (associatedTasks.length > 0) {
+                        showAlert(`Cannot delete "${name}": It is used by ${associatedTasks.length} task(s). Please re-assign or delete those tasks first.`, true);
+                        return;
+                    }
+
+                    showConfirm(`Delete asset "${name}"? This cannot be undone.`, async () => {
+                        deleteNode(assets, id);
+                        await updateDoc(locationRef, { assets });
+                    });
                 }
             });
+
+            // --- Settings List Event Delegation ---
+            settingsView.addEventListener('click', async (e) => {
+                const addBtn = e.target.closest('.add-setting-btn');
+                const deleteBtn = e.target.closest('.delete-setting-btn');
+                const settingsRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'globalConfig');
+                
+                if (addBtn) {
+                    const key = addBtn.dataset.listKey;
+                    showPrompt(`Enter new value for ${key}:`, async (value) => {
+                        if (value && !globalSettings[key].includes(value)) {
+                            const newList = [...globalSettings[key], value];
+                            await updateDoc(settingsRef, { [key]: newList });
+                        } else if (value) {
+                            showAlert("This value already exists.", true);
+                        }
+                    });
+                }
+
+                if (deleteBtn) {
+                    const key = deleteBtn.dataset.listKey;
+                    const value = deleteBtn.dataset.value;
+                    showConfirm(`Are you sure you want to delete "${value}"?`, async () => {
+                        // Check if value is in use
+                        const tasksInUse = tasks.filter(t => t[key] === value); // Note: key might not be 'type', 'status', 'frequency'
+                        if (key === 'maintenanceTypes' && tasks.some(t => t.type === value) ||
+                            key === 'frequencies' && tasks.some(t => t.frequency === value) ||
+                            key === 'statuses' && tasks.some(t => t.status === value)) {
+                                showAlert(`Cannot delete "${value}": It is currently in use by tasks.`, true);
+                                return;
+                            }
+                        
+                        const newList = globalSettings[key].filter(item => item !== value);
+                        await updateDoc(settingsRef, { [key]: newList });
+                    });
+                }
+            });
+
+
             weekSelector.addEventListener('input', (e) => renderWeeklyView(e.target.value));
             [filterAsset, filterType, filterStatus].forEach(el => el.addEventListener('change', applyFiltersAndRender));
             resetFiltersBtn.addEventListener('click', () => { filterAsset.value = 'All'; filterType.value = 'All'; filterStatus.value = 'All'; applyFiltersAndRender(); });
@@ -993,24 +1803,23 @@
             
             // --- INITIALIZATION ---
             const initialize = async () => {
-                populateDropdown(document.getElementById('maintenance-type'), staticDb.maintenanceTypes);
-                populateDropdown(document.getElementById('frequency'), staticDb.frequencies);
-                populateDropdown(document.getElementById('status'), staticDb.statuses);
-                
-                populateDropdown(filterType, staticDb.maintenanceTypes, true);
-                populateDropdown(filterStatus, staticDb.statuses, true);
+                // Populate static dropdowns
                 populateDropdown(reportPeriodSelector, reportPeriods.weekly);
+                
+                // Set current week
                 const now = new Date(); const start = new Date(now.getFullYear(), 0, 1);
                 const diff = (now - start) + ((start.getTimezoneOffset() - now.getTimezoneOffset()) * 60 * 1000);
                 const day = Math.floor(diff / (1000 * 60 * 60 * 24));
                 weekSelector.value = Math.ceil(day / 7);
-                await setupInitialData();
-                listenForPlants();
+                
+                await setupInitialData(); // Create sample data if it doesn't exist
+                listenForGlobalSettings(); // Listen for settings (this will populate dropdowns)
+                listenForLocations(); // This will trigger the first data load for locations & tasks
             };
+            
             initialize();
         });
     </script>
 </body>
 </html>
-
 
