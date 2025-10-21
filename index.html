@@ -330,6 +330,15 @@
                             </div>
                         </div>
 
+                        <!-- App Configuration (Removed clear config button as config is now hardcoded) -->
+                        <div class="bg-white p-6 rounded-lg shadow-sm">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">App Configuration</h3>
+                            <p class="text-sm text-gray-600 mb-4">
+                                This app is running with App ID: <code id="current-app-id" class="text-xs bg-gray-100 p-1 rounded">...</code>
+                            </p>
+                             <p class="text-xs text-gray-500">Firebase configuration is hardcoded in this version.</p>
+                        </div>
+                        
                         <!-- Global Settings -->
                         <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6">
                             <!-- Maintenance Types -->
@@ -363,6 +372,8 @@
             </main>
         </div>
     </div>
+
+    <!-- Config Modal (Removed as config is now hardcoded) -->
 
     <!-- Add/Edit Task Modal -->
     <div id="task-modal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden opacity-0 z-50">
@@ -483,79 +494,113 @@
         // Firebase Imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, collection, onSnapshot, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, runTransaction, updateDoc, writeBatch, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"; // Removed signInWithCustomToken
         
-        // --- DATABASE CONFIGURATION ---
-        // These variables are injected by the environment.
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // --- APP STATE ---
+        let db, auth, userId, appId;
 
-
-        document.addEventListener('DOMContentLoaded', async () => {
-            // --- FIREBASE SETUP ---
-            let db, auth, userId;
+        // --- HARDCODED FIREBASE CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAxkGXSeHjupGrK33PO7JjbA_CNAYWCdOE",
+            authDomain: "maintenanceplan-2ec9f.firebaseapp.com",
+            projectId: "maintenanceplan-2ec9f",
+            storageBucket: "maintenanceplan-2ec9f.firebasestorage.app",
+            messagingSenderId: "56889846685",
+            appId: "1:56889846685:web:9876e04681db5428495d74",
+            measurementId: "G-FPNV2407ER"
+        };
+        
+        // --- FIREBASE INITIALIZATION ---
+        const initializeFirebase = async (config, providedAppId) => {
             try {
-                 if (!firebaseConfig || Object.keys(firebaseConfig).length === 0) {
-                    throw new Error("Firebase configuration is missing. Cannot initialize app.");
+                if (!config || Object.keys(config).length === 0) {
+                    throw new Error("Firebase configuration is missing.");
                 }
-                const app = initializeApp(firebaseConfig);
+                if (!providedAppId) {
+                    throw new Error("App ID is missing.");
+                }
+                
+                const app = initializeApp(config);
                 db = getFirestore(app);
                 auth = getAuth(app);
-                setLogLevel('debug'); // Enable Firestore logging
+                setLogLevel('debug');
 
-                // Sign in
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
+                // --- MODIFICATION START: Always use anonymous sign-in ---
+                await signInAnonymously(auth);
+                // --- MODIFICATION END ---
 
                 userId = auth.currentUser?.uid;
                 if (!userId) {
                     throw new Error("Authentication failed, user ID is not available.");
                 }
-                console.log("Authenticated with user ID:", userId);
                 
+                appId = providedAppId; // Set the global appId
+                console.log("Authenticated anonymously with user ID:", userId, "for App ID:", appId);
+                return true; // Success
+
             } catch (error) {
                 console.error("Firebase initialization failed:", error);
                 const loadingOverlay = document.getElementById('loading-overlay');
-                
                 let errorMessage;
-                if (error.message.includes("Firebase configuration is missing")) {
+                 // Handle specific errors
+                if (error.code === 'auth/operation-not-allowed' || error.message.includes("Authentication failed")) { // Updated error code check
                      errorMessage = `
                         <div class="text-center p-4">
-                            <h2 class="text-xl font-bold text-red-600">Configuration Error</h2>
-                            <p class="text-gray-700 mt-2">The Firebase configuration is missing or invalid.</p>
-                            <p class="text-gray-600 mt-4 text-sm">Please ensure the app is loaded in the correct environment.</p>
+                            <h2 class="text-xl font-bold text-red-600">Firebase Authentication Error</h2>
+                            <p class="text-gray-700 mt-2">Anonymous sign-in might be disabled in your project, or authentication failed.</p>
+                            <p class="text-gray-600 mt-4 text-sm"><b>Action Required:</b></p>
+                            <ol class="text-left text-sm text-gray-600 list-decimal list-inside mt-2 bg-gray-100 p-3 rounded">
+                                <li>Go to your <a href="https://console.firebase.google.com/" target="_blank" class="text-blue-600 underline">Firebase Console</a>.</li>
+                                <li>Select your project: <b>${config.projectId || 'YOUR_PROJECT_ID'}</b>.</li>
+                                <li>Go to <b>Build > Authentication</b> > <b>Sign-in method</b> tab.</li>
+                                <li>Enable the <b>Anonymous</b> provider.</li>
+                                <li>Refresh this page.</li>
+                            </ol>
                         </div>`;
-                }
-                else if (error.code === 'auth/configuration-not-found' || error.message.includes("Authentication failed")) {
-                    errorMessage = `
-                    <div class="text-center p-4">
-                        <h2 class="text-xl font-bold text-red-600">Firebase Authenticatie Fout</h2>
-                        <p class="text-gray-700 mt-2">De anonieme inlogmethode is niet geactiveerd in je Firebase-project, or authentication failed.</p>
-                        <p class="text-gray-600 mt-4 text-sm"><b>Actie vereist:</b></p>
-                        <ol class="text-left text-sm text-gray-600 list-decimal list-inside mt-2 bg-gray-100 p-3 rounded">
-                            <li>Ga naar je <a href="https://console.firebase.google.com/" target="_blank" class="text-blue-600 underline">Firebase Console</a>.</li>
-                            <li>Selecteer je project: <b>${firebaseConfig.projectId || 'YOUR_PROJECT_ID'}</b>.</li>
-                            <li>Ga naar <b>Build > Authentication</b>.</li>
-                            <li>Klik op het <b>Sign-in method</b> tabblad.</li>
-                            <li>Klik op <b>Anonymous</b> in de lijst en activeer de schakelaar (Enable).</li>
-                            <li>Sla op en ververs deze pagina.</li>
-                        </ol>
-                    </div>`;
                 } else {
                         errorMessage = `
-                    <div class="text-center p-4">
-                        <h2 class="text-xl font-bold text-red-600">Database Connection Failed</h2>
-                        <p class="text-gray-700 mt-2">Could not connect to the database.</p>
-                        <p class="text-gray-600 mt-4 text-sm">Error: ${error.message}</p>
-                    </div>`;
+                        <div class="text-center p-4">
+                            <h2 class="text-xl font-bold text-red-600">Initialization Failed</h2>
+                            <p class="text-gray-700 mt-2">${error.message}.</p>
+                            <p class="text-gray-600 mt-4 text-sm">Please check the hardcoded Firebase configuration in the script.</p>
+                        </div>`;
                 }
-                loadingOverlay.innerHTML = errorMessage;
-                return;
+                 loadingOverlay.innerHTML = errorMessage; // Show error on the loading overlay
+                return false; // Failure
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const loadingOverlay = document.getElementById('loading-overlay');
+            // Determine App ID (use injected if available, otherwise prompt)
+            let localAppId = null;
+            if (typeof __app_id !== 'undefined') {
+                localAppId = __app_id;
+            } else {
+                localAppId = localStorage.getItem('appId');
+                 if (!localAppId) {
+                    // Simple prompt as fallback if config modal is removed
+                    localAppId = prompt("Please enter a unique App ID for your data (e.g., 'main-dashboard'):", "default-app-id");
+                    if (!localAppId) localAppId = 'default-app-id'; // Default if prompt is cancelled
+                    localStorage.setItem('appId', localAppId);
+                }
             }
 
+            // Attempt initialization with hardcoded config and determined App ID
+            const success = await initializeFirebase(firebaseConfig, localAppId);
+            if (success) {
+                startApp();
+            } else {
+                 // Error handled by initializeFirebase, overlay shows the message.
+                 // We don't need to do anything else here.
+            }
+        });
+
+        // This function contains the rest of the original DOMContentLoaded logic
+        const startApp = () => {
+             // Ensure loading overlay is hidden once app starts
+            const loadingOverlay = document.getElementById('loading-overlay');
+            hideLoading(); // Call hideLoading here
 
             // --- DATABASE & LISTS (Static Config) ---
             const defaultSettings = {
@@ -598,7 +643,7 @@
             let expandedAssetNodes = new Set(); // Stores IDs of expanded nodes
 
             // --- UI ELEMENTS ---
-            const loadingOverlay = document.getElementById('loading-overlay');
+            // const loadingOverlay = document.getElementById('loading-overlay'); // Already defined outside
             const locationSelector = document.getElementById('location-selector');
             const navTabs = document.getElementById('nav-tabs');
             const planningTableBody = document.getElementById('planning-table-body');
@@ -1812,13 +1857,22 @@
                 const day = Math.floor(diff / (1000 * 60 * 60 * 24));
                 weekSelector.value = Math.ceil(day / 7);
                 
+                // Update App ID display
+                document.getElementById('current-app-id').textContent = appId;
+                 // Remove clear config button as it's not needed now
+                const clearConfigBtn = document.getElementById('clear-config-btn');
+                if (clearConfigBtn) {
+                    clearConfigBtn.remove(); // Or hide it: clearConfigBtn.style.display = 'none';
+                }
+
+
                 await setupInitialData(); // Create sample data if it doesn't exist
                 listenForGlobalSettings(); // Listen for settings (this will populate dropdowns)
                 listenForLocations(); // This will trigger the first data load for locations & tasks
             };
             
             initialize();
-        });
+        } // End of startApp function
     </script>
 </body>
 </html>
