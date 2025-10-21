@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maintenance Plan Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- jsPDF for PDF Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .tab-button.active {
+            border-bottom-color: #4f46e5;
+            color: #4f46e5;
+            font-weight: 600;
+        }
+        .modal {
+            transition: opacity 0.3s ease;
+        }
+        .chart-bar {
+            transition: height 0.5s ease-out;
+        }
+        /* Simple spinner */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 4px solid #4f46e5;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #loading-overlay {
+            transition: opacity 0.3s ease;
+        }
+        .year-view-grid {
+            grid-template-columns: 200px repeat(52, minmax(30px, 1fr));
+        }
+    </style>
+</head>
+<body class="antialiased text-gray-800">
+
+    <div id="loading-overlay" class="fixed inset-0 bg-white/70 backdrop-blur-sm flex items-center justify-center z-50">
+        <div class="loader"></div>
+    </div>
+
+    <div class="min-h-screen p-4 sm:p-6 lg:p-8">
+        <div class="max-w-7xl mx-auto">
+            <!-- Header -->
+            <header class="mb-4">
+                 <div class="flex flex-col sm:flex-row justify-between sm:items-center">
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-900">Maintenance Plan</h1>
+                        <p class="text-gray-500 mt-1">A dynamic and visual overview of your maintenance tasks.</p>
+                    </div>
+                    <div class="mt-4 sm:mt-0">
+                         <label for="plant-selector" class="block text-sm font-medium text-gray-700">Select Plant</label>
+                         <select id="plant-selector" class="mt-1 block w-full sm:w-64 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Navigation Tabs -->
+            <div class="mb-6 border-b border-gray-200">
+                <nav class="-mb-px flex space-x-6 overflow-x-auto" id="nav-tabs">
+                    <button data-tab="dashboard" class="tab-button active shrink-0 py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Dashboard</button>
+                    <button data-tab="planning" class="tab-button shrink-0 py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Maintenance Planning</button>
+                    <button data-tab="weekly" class="tab-button shrink-0 py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Weekly View</button>
+                    <button data-tab="year" class="tab-button shrink-0 py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Year View</button>
+                    <button data-tab="reports" class="tab-button shrink-0 py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Reports</button>
+                    <button data-tab="settings" class="tab-button shrink-0 py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Settings</button>
+                </nav>
+            </div>
+
+            <!-- Content Area -->
+            <main id="content-area">
+                <!-- Dashboard View -->
+                <div id="dashboard-view" class="tab-content">
+                    <!-- Dashboard Filters -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 bg-white p-4 rounded-lg shadow-sm">
+                        <div>
+                            <label for="filter-asset" class="block text-sm font-medium text-gray-700">Asset</label>
+                            <select id="filter-asset" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                        </div>
+                        <div>
+                            <label for="filter-type" class="block text-sm font-medium text-gray-700">Maintenance Type</label>
+                            <select id="filter-type" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                        </div>
+                        <div>
+                            <label for="filter-status" class="block text-sm font-medium text-gray-700">Status</label>
+                            <select id="filter-status" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                        </div>
+                        <div class="flex items-end">
+                            <button id="reset-filters" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-md text-sm transition">Reset Filters</button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- Status Overview -->
+                        <div class="lg:col-span-1 bg-white p-6 rounded-lg shadow-sm">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Status Overview</h3>
+                            <div id="status-chart" class="space-y-4"></div>
+                        </div>
+                        <!-- Workload Per Week -->
+                        <div class="lg:col-span-2 bg-white p-6 rounded-lg shadow-sm">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Workload per Week (Hours)</h3>
+                            <div id="workload-chart" class="h-64 flex items-end space-x-1 overflow-x-auto p-2 bg-gray-50 rounded-md"></div>
+                        </div>
+                    </div>
+                     <!-- Open/Postponed Tasks -->
+                    <div class="mt-6 bg-white p-6 rounded-lg shadow-sm">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Urgent Tasks (Open or Postponed)</h3>
+                        <div id="urgent-tasks-list" class="overflow-x-auto"></div>
+                    </div>
+                </div>
+
+                <!-- Maintenance Planning View -->
+                <div id="planning-view" class="tab-content hidden">
+                    <div class="bg-white p-6 rounded-lg shadow-sm">
+                        <div class="flex justify-between items-center mb-4 flex-wrap gap-4">
+                            <h3 class="text-lg font-semibold text-gray-900">All Maintenance Tasks</h3>
+                            <div class="flex items-center space-x-2 flex-wrap gap-2">
+                                <input type="file" id="csv-file-input" class="hidden" accept=".csv">
+                                <button id="download-template-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-md flex items-center">
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                    Download Template
+                                </button>
+                                <button id="import-csv-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md flex items-center">
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                                    Import from CSV
+                                </button>
+                                <button id="export-csv-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md flex items-center">
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                    Export to CSV
+                                </button>
+                                <button id="add-task-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md flex items-center">
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                                    Add Task
+                                </button>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-500 mt-2">
+                            Om taken te importeren, download eerst de template. Vul de data in en zorg ervoor dat de 'asset' en 'subAsset' waarden exact overeenkomen met de waarden in de Settings.
+                        </p>
+                        <div class="overflow-x-auto mt-4">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Asset</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sub-asset</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Task</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Frequency</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time (hrs)</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="planning-table-body" class="bg-white divide-y divide-gray-200"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Weekly Planning View -->
+                <div id="weekly-view" class="tab-content hidden">
+                    <div class="bg-white p-6 rounded-lg shadow-sm">
+                        <div class="md:flex justify-between items-center mb-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4 md:mb-0">Weekly Task Overview</h3>
+                             <div class="flex items-center space-x-2">
+                                <label for="week-selector" class="text-sm font-medium">Select Week:</label>
+                                <input type="number" id="week-selector" min="1" max="52" class="w-24 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div class="lg:col-span-2">
+                                <h4 class="text-md font-semibold mb-2" id="weekly-task-title">Tasks for Week X</h4>
+                                <div class="overflow-x-auto border rounded-lg">
+                                    <table class="min-w-full divide-y divide-gray-200">
+                                        <thead class="bg-gray-50">
+                                            <tr>
+                                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Asset</th>
+                                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Sub-asset</th>
+                                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Task</th>
+                                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Time (hrs)</th>
+                                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="weekly-task-list" class="bg-white divide-y divide-gray-200"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="lg:col-span-1">
+                                <h4 class="text-md font-semibold mb-2" id="weekly-hours-title">Total Hours for Week X</h4>
+                                <div id="weekly-hours-summary" class="space-y-3"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Year View -->
+                <div id="year-view" class="tab-content hidden">
+                    <div class="bg-white p-6 rounded-lg shadow-sm overflow-x-auto">
+                         <h3 class="text-lg font-semibold text-gray-900 mb-4">Yearly Task Schedule</h3>
+                        <div id="year-view-grid-container" class="min-w-max"></div>
+                    </div>
+                </div>
+
+                <!-- Reports View -->
+                <div id="reports-view" class="tab-content hidden">
+                     <div class="bg-white p-6 rounded-lg shadow-sm">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Generate Report</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                             <div>
+                                <label for="report-type-selector" class="block text-sm font-medium text-gray-700">Report Type</label>
+                                <select id="report-type-selector" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                    <option value="weekly">Weekly</option>
+                                    <option value="monthly">Monthly</option>
+                                    <option value="quarterly">Quarterly</option>
+                                </select>
+                            </div>
+                             <div>
+                                <label for="report-period-selector" class="block text-sm font-medium text-gray-700">Period</label>
+                                <select id="report-period-selector" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                            </div>
+                             <div>
+                                <button id="generate-pdf-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center">
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                    Generate PDF
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings View -->
+                <div id="settings-view" class="tab-content hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Add New Plant -->
+                        <div class="bg-white p-6 rounded-lg shadow-sm">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Add New Plant</h3>
+                            <form id="add-plant-form" class="space-y-4">
+                                <div>
+                                    <label for="new-plant-name" class="block text-sm font-medium text-gray-700">Plant Name</label>
+                                    <input type="text" id="new-plant-name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                </div>
+                                <div class="flex justify-end">
+                                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md">Add Plant</button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Manage Existing Plants -->
+                        <div class="bg-white p-6 rounded-lg shadow-sm">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Manage Existing Plant</h3>
+                            <div>
+                                <label for="edit-plant-selector" class="block text-sm font-medium text-gray-700">Select Plant to Manage</label>
+                                <select id="edit-plant-selector" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                            </div>
+                            <div id="asset-manager" class="mt-6 hidden"></div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Add/Edit Task Modal -->
+    <div id="task-modal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden opacity-0 z-50">
+        <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center pb-3 border-b">
+                <h3 id="modal-title" class="text-2xl font-bold">Add New Task</h3>
+                <button id="close-modal-btn" class="text-gray-400 hover:text-gray-600">
+                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <form id="task-form" class="mt-4 space-y-4">
+                <input type="hidden" id="task-id">
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <label for="asset" class="block text-sm font-medium text-gray-700">Asset</label>
+                        <select id="asset" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                    </div>
+                    <div>
+                        <label for="sub-asset" class="block text-sm font-medium text-gray-700">Sub-asset</label>
+                        <select id="sub-asset" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                    </div>
+                </div>
+                <div>
+                    <label for="task-description" class="block text-sm font-medium text-gray-700">Task Description</label>
+                    <input type="text" id="task-description" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <label for="maintenance-type" class="block text-sm font-medium text-gray-700">Maintenance Type</label>
+                        <select id="maintenance-type" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                    </div>
+                    <div>
+                        <label for="frequency" class="block text-sm font-medium text-gray-700">Frequency</label>
+                        <select id="frequency" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                     <div>
+                        <label for="start-week" class="block text-sm font-medium text-gray-700">Start Week</label>
+                        <input type="number" id="start-week" min="1" max="52" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label for="required-time" class="block text-sm font-medium text-gray-700">Required Time (hours)</label>
+                        <input type="number" id="required-time" step="0.1" min="0" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                </div>
+                <div>
+                    <label for="status" class="block text-sm font-medium text-gray-700">Status</label>
+                    <select id="status" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                </div>
+                <div class="pt-4 border-t flex justify-end">
+                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md">Save Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script type="module">
+        // Firebase Imports
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, collection, onSnapshot, doc, getDoc, setDoc, addDoc, deleteDoc, runTransaction, updateDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // --- FIREBASE SETUP ---
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            let db, auth;
+            try {
+                const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Firebase initialization failed:", error);
+                document.getElementById('loading-overlay').innerHTML = `<div class="text-center text-red-500">Error connecting to database. Please check console.</div>`;
+                return;
+            }
+
+            // --- DATABASE & LISTS (Static Config) ---
+            const staticDb = {
+                frequencies: ['Weekly', 'Biweekly', 'Monthly', 'Bimonthly', 'Quarterly', 'Biannual', 'Annual'],
+                maintenanceTypes: ['Preventive Maintenance (PM)', 'Corrective Maintenance (CM)', 'Breakdown / Reactive Maintenance', 'Predictive Maintenance (PdM)', 'Condition-Based Maintenance (CBM)', 'Inspections', 'Project Maintenance', 'Ad-hoc work', '3rd Party Maintenance'],
+                statuses: ['Open', 'In Progress', 'Completed', 'Postponed'],
+                statusColors: {
+                    'Open': 'bg-red-500',
+                    'In Progress': 'bg-yellow-500',
+                    'Completed': 'bg-green-500',
+                    'Postponed': 'bg-blue-500'
+                }
+            };
+            
+            const frequencyInWeeks = { 'Weekly': 1, 'Biweekly': 2, 'Monthly': 4, 'Bimonthly': 8, 'Quarterly': 13, 'Biannual': 26, 'Annual': 52 };
+            
+            const reportPeriods = {
+                weekly: Array.from({ length: 52 }, (_, i) => `Week ${i + 1}`),
+                monthly: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+                quarterly: ["Quarter 1 (W1-13)", "Quarter 2 (W14-26)", "Quarter 3 (W27-39)", "Quarter 4 (W40-52)"]
+            };
+
+            const weeksInPeriod = {
+                "January": {start: 1, end: 4}, "February": {start: 5, end: 8}, "March": {start: 9, end: 13},
+                "April": {start: 14, end: 17}, "May": {start: 18, end: 21}, "June": {start: 22, end: 26},
+                "July": {start: 27, end: 30}, "August": {start: 31, end: 34}, "September": {start: 35, end: 39},
+                "October": {start: 40, end: 43}, "November": {start: 44, end: 47}, "December": {start: 48, end: 52},
+                "Quarter 1 (W1-13)": {start: 1, end: 13}, "Quarter 2 (W14-26)": {start: 14, end: 26},
+                "Quarter 3 (W27-39)": {start: 27, end: 39}, "Quarter 4 (W40-52)": {start: 40, end: 52},
+            };
+
+            // --- STATE MANAGEMENT ---
+            let tasks = [];
+            let plantConfigs = [];
+            let currentPlantName = null;
+            let unsubscribeTasks = () => {};
+
+            // --- UI ELEMENTS ---
+            const loadingOverlay = document.getElementById('loading-overlay');
+            const plantSelector = document.getElementById('plant-selector');
+            const navTabs = document.getElementById('nav-tabs');
+            const planningTableBody = document.getElementById('planning-table-body');
+            const modal = document.getElementById('task-modal');
+            const taskForm = document.getElementById('task-form');
+            const weekSelector = document.getElementById('week-selector');
+            const addTaskBtn = document.getElementById('add-task-btn');
+            const exportCsvBtn = document.getElementById('export-csv-btn');
+            const importCsvBtn = document.getElementById('import-csv-btn');
+            const csvFileInput = document.getElementById('csv-file-input');
+            const closeModalBtn = document.getElementById('close-modal-btn');
+            const filterAsset = document.getElementById('filter-asset');
+            const filterType = document.getElementById('filter-type');
+            const filterStatus = document.getElementById('filter-status');
+            const resetFiltersBtn = document.getElementById('reset-filters');
+            const addPlantForm = document.getElementById('add-plant-form');
+            const editPlantSelector = document.getElementById('edit-plant-selector');
+            const assetManagerDiv = document.getElementById('asset-manager');
+            const reportTypeSelector = document.getElementById('report-type-selector');
+            const reportPeriodSelector = document.getElementById('report-period-selector');
+            const generatePdfBtn = document.getElementById('generate-pdf-btn');
+            const downloadTemplateBtn = document.getElementById('download-template-btn');
+            
+            // --- UTILITY FUNCTIONS ---
+            const getScheduledWeeks = (task) => {
+                const weeks = [];
+                const freq = frequencyInWeeks[task.frequency];
+                if (!freq) return weeks;
+                for (let i = task.startWeek; i <= 52; i += freq) { weeks.push(i); }
+                return weeks;
+            };
+            
+            const showLoading = () => {
+                loadingOverlay.classList.remove('hidden');
+                setTimeout(() => loadingOverlay.classList.remove('opacity-0'), 10);
+            };
+
+            const hideLoading = () => {
+                loadingOverlay.classList.add('opacity-0');
+                setTimeout(() => loadingOverlay.classList.add('hidden'), 300);
+            };
+
+            const exportToCsv = (filteredTasks) => {
+                const headers = ['ID', 'Asset', 'Sub-asset', 'Task Description', 'Type', 'Frequency', 'Start Week', 'Time (hrs)', 'Status'];
+                const rows = filteredTasks.map(task => [
+                    task.id, `"${task.asset.replace(/"/g, '""')}"`, `"${task.subAsset.replace(/"/g, '""')}"`, `"${task.description.replace(/"/g, '""')}"`,
+                    task.type, task.frequency, task.startWeek, task.time, task.status
+                ]);
+                let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                const plantName = currentPlantName.replace(/\s+/g, '_');
+                link.setAttribute("download", `maintenance_plan_${plantName}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+            
+            const downloadCsvTemplate = () => {
+                const headers = ['asset', 'subAsset', 'description', 'type', 'frequency', 'startWeek', 'time', 'status'];
+                const plantConfig = plantConfigs.find(p => p.id === currentPlantName);
+                let exampleRow = ['Line 1', '1.1 Packer', 'Monthly inspection', 'Inspections', 'Monthly', '1', '2.5', 'Open']; // Default example
+                if (plantConfig && plantConfig.assets.length > 0 && plantConfig.assets[0].subAssets.length > 0) {
+                    exampleRow[0] = plantConfig.assets[0].name;
+                    exampleRow[1] = plantConfig.assets[0].subAssets[0];
+                }
+
+                const csvContent = "data:text/csv;charset=utf-8,"
+                    + headers.join(",") + "\n"
+                    + exampleRow.join(",");
+
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", "maintenance_plan_template.csv");
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
+            // --- PDF GENERATION ---
+            const generatePdfReport = () => {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+
+                const reportType = reportTypeSelector.options[reportTypeSelector.selectedIndex].text;
+                const period = reportPeriodSelector.value;
+                const title = `${reportType} Report for ${period}`;
+                
+                doc.setFontSize(18);
+                doc.text(title, 14, 22);
+                doc.setFontSize(11);
+                doc.setTextColor(100);
+                doc.text(`Plant: ${currentPlantName}`, 14, 30);
+                doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 36);
+
+                let periodTasks = [];
+                if(reportType === 'Weekly'){
+                    const weekNumber = parseInt(period.replace('Week ', ''));
+                    periodTasks = tasks.filter(task => getScheduledWeeks(task).includes(weekNumber));
+                } else {
+                    const { start, end } = weeksInPeriod[period];
+                    periodTasks = tasks.filter(task => getScheduledWeeks(task).some(w => w >= start && w <= end));
+                }
+
+                const head = [['Asset', 'Sub-asset', 'Description', 'Type', 'Time (hrs)', 'Status']];
+                const body = periodTasks.map(t => [t.asset, t.subAsset, t.description, t.type, t.time, t.status]);
+
+                if(body.length === 0){
+                    doc.text("No tasks found for the selected period.", 14, 50);
+                } else {
+                    doc.autoTable({
+                        startY: 40,
+                        head: head,
+                        body: body,
+                        theme: 'striped',
+                        headStyles: { fillColor: [79, 70, 229] }, // Indigo color
+                    });
+                }
+                
+                doc.save(`report_${currentPlantName.replace(/\s+/g, '_')}_${period.replace(/\s+/g, '_')}.pdf`);
+            };
+
+
+            // --- DATA HANDLING ---
+            const setupInitialData = async () => {
+                const plantsCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'plants');
+                const plantADocRef = doc(plantsCollectionRef, 'Plant A');
+                const plantBDocRef = doc(plantsCollectionRef, 'Plant B');
+                
+                await runTransaction(db, async (transaction) => {
+                    const plantADoc = await transaction.get(plantADocRef);
+                    const plantBDoc = await transaction.get(plantBDocRef);
+                    if (!plantADoc.exists()) {
+                         transaction.set(plantADocRef, {
+                            name: 'Plant A', assets: [ { name: 'Line 1', subAssets: ['1.1 Packer', '1.2 Filler', '1.3 Labeler'] }, { name: 'Utilities', subAssets: ['Air Compressor', 'Boiler', 'Water System'] } ]
+                        });
+                         transaction.set(doc(plantADocRef, 'tasks', 'sample1'), { asset: 'Line 1', subAsset: '1.1 Packer', description: 'Inspect conveyor belt', type: 'Inspections', frequency: 'Monthly', startWeek: 2, time: 1.5, status: 'Completed' });
+                    }
+                    if (!plantBDoc.exists()) {
+                        transaction.set(plantBDocRef, {
+                            name: 'Plant B', assets: [ { name: 'Main Assembly', subAssets: ['Robot Arm 1', 'Welding Station'] }, { name: 'Finishing Line', subAssets: ['Paint Booth', 'Drying Oven'] } ]
+                        });
+                         transaction.set(doc(plantBDocRef, 'tasks', 'sample2'), { asset: 'Main Assembly', subAsset: 'Robot Arm 1', description: 'Calibrate sensors', type: 'Corrective Maintenance (CM)', frequency: 'Quarterly', startWeek: 5, time: 4, status: 'Open' });
+                    }
+                });
+            };
+
+            const listenForPlants = () => {
+                const plantsCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'plants');
+                onSnapshot(plantsCollectionRef, (snapshot) => {
+                    plantConfigs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    populatePlantSelector();
+                    populateEditPlantSelector();
+                    
+                    if (!currentPlantName && plantConfigs.length > 0) { switchPlant(plantConfigs[0].id); } 
+                    else if (currentPlantName) {
+                        renderAssetManager(currentPlantName);
+                        const plantConfig = plantConfigs.find(p => p.id === currentPlantName);
+                        const assetNames = plantConfig ? plantConfig.assets.map(a => a.name) : [];
+                        populateDropdown(filterAsset, assetNames, true);
+                    }
+                    if (plantConfigs.length === 0) { hideLoading(); }
+                }, error => console.error("Error fetching plants:", error));
+            };
+
+            const switchPlant = (plantName) => {
+                if (currentPlantName === plantName) return;
+                currentPlantName = plantName;
+                plantSelector.value = plantName;
+                const plantConfig = plantConfigs.find(p => p.id === plantName);
+                const assetNames = plantConfig ? plantConfig.assets.map(a => a.name) : [];
+                populateDropdown(filterAsset, assetNames, true);
+                unsubscribeTasks();
+                const tasksCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'plants', plantName, 'tasks');
+                unsubscribeTasks = onSnapshot(tasksCollectionRef, (snapshot) => {
+                    tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    applyFiltersAndRender();
+                    renderWeeklyView(weekSelector.value || 1);
+                    renderYearView();
+                    hideLoading();
+                }, error => { console.error(`Error fetching tasks for ${plantName}:`, error); hideLoading(); });
+            };
+
+            // --- MODAL HANDLING ---
+            const openModal = (task = null) => {
+                taskForm.reset();
+                populateAssetDropdown();
+                if (task) {
+                    document.getElementById('modal-title').textContent = 'Edit Task';
+                    document.getElementById('task-id').value = task.id;
+                    document.getElementById('asset').value = task.asset;
+                    populateSubAssetDropdown(task.asset);
+                    document.getElementById('sub-asset').value = task.subAsset;
+                    document.getElementById('task-description').value = task.description;
+                    document.getElementById('maintenance-type').value = task.type;
+                    document.getElementById('frequency').value = task.frequency;
+                    document.getElementById('start-week').value = task.startWeek;
+                    document.getElementById('required-time').value = task.time;
+                    document.getElementById('status').value = task.status;
+                } else {
+                    document.getElementById('modal-title').textContent = 'Add New Task';
+                    document.getElementById('task-id').value = '';
+                    const plantConfig = plantConfigs.find(p => p.id === currentPlantName);
+                    if (plantConfig && plantConfig.assets.length > 0) {
+                       populateSubAssetDropdown(plantConfig.assets[0].name);
+                    }
+                }
+                modal.classList.remove('hidden');
+                setTimeout(() => modal.classList.remove('opacity-0'), 10);
+            };
+
+            const closeModal = () => {
+                modal.classList.add('opacity-0');
+                setTimeout(() => modal.classList.add('hidden'), 300);
+            };
+            
+            // --- DROPDOWN POPULATION ---
+            const populatePlantSelector = () => {
+                const currentVal = plantSelector.value;
+                plantSelector.innerHTML = '';
+                plantConfigs.forEach(plant => { plantSelector.innerHTML += `<option value="${plant.id}">${plant.name}</option>`; });
+                if (currentVal) plantSelector.value = currentVal;
+            };
+
+            const populateEditPlantSelector = () => {
+                const currentVal = editPlantSelector.value;
+                editPlantSelector.innerHTML = '<option value="" disabled selected>-- Select a plant --</option>';
+                plantConfigs.forEach(plant => { editPlantSelector.innerHTML += `<option value="${plant.id}">${plant.name}</option>`; });
+                if (currentVal) editPlantSelector.value = currentVal;
+            };
+
+            const populateDropdown = (selectEl, options, includeAll = false) => {
+                 selectEl.innerHTML = '';
+                if(includeAll) { selectEl.innerHTML += `<option value="All">All</option>`; }
+                if (options) {
+                    options.forEach(option => { selectEl.innerHTML += `<option value="${option}">${option}</option>`; });
+                }
+            };
+
+            const populateAssetDropdown = () => {
+                const assetSelect = document.getElementById('asset');
+                assetSelect.innerHTML = '';
+                const plantConfig = plantConfigs.find(p => p.id === currentPlantName);
+                if (plantConfig && plantConfig.assets) {
+                    plantConfig.assets.forEach(asset => { assetSelect.innerHTML += `<option value="${asset.name}">${asset.name}</option>`; });
+                }
+            };
+            
+            const populateSubAssetDropdown = (assetName) => {
+                const subAssetSelect = document.getElementById('sub-asset');
+                subAssetSelect.innerHTML = '';
+                const plantConfig = plantConfigs.find(p => p.id === currentPlantName);
+                const selectedAsset = plantConfig?.assets?.find(a => a.name === assetName);
+                if (selectedAsset && selectedAsset.subAssets) {
+                    selectedAsset.subAssets.forEach(sub => { subAssetSelect.innerHTML += `<option value="${sub}">${sub}</option>`; });
+                }
+            };
+            
+            // --- RENDERING FUNCTIONS ---
+            const renderPlanningTable = (filteredTasks = tasks) => {
+                planningTableBody.innerHTML = '';
+                if(filteredTasks.length === 0) {
+                    planningTableBody.innerHTML = `<tr><td colspan="8" class="text-center py-10 text-gray-500">No tasks found.</td></tr>`;
+                    return;
+                }
+                filteredTasks.forEach(task => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${task.asset}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${task.subAsset}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate" title="${task.description}">${task.description}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${task.type}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${task.frequency}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${task.time}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${staticDb.statusColors[task.status].replace('bg-','bg-').replace('-500','-100')} ${staticDb.statusColors[task.status].replace('bg-','text-').replace('-500','-800')}">${task.status}</span></td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button class="edit-btn text-indigo-600 hover:text-indigo-900" data-id="${task.id}">Edit</button>
+                            <button class="delete-btn text-red-600 hover:text-red-900 ml-4" data-id="${task.id}">Delete</button>
+                        </td>`;
+                    planningTableBody.appendChild(row);
+                });
+            };
+            
+            const renderWeeklyView = (weekNumber) => {
+                if(!weekNumber || weekNumber < 1 || weekNumber > 52) {
+                    document.getElementById('weekly-task-list').innerHTML = `<tr><td colspan="5" class="text-center py-10 text-gray-500">Select a week number between 1 and 52.</td></tr>`;
+                    document.getElementById('weekly-hours-summary').innerHTML = `<p class="text-center text-gray-500">No data to display.</p>`;
+                    return;
+                }
+                document.getElementById('weekly-task-title').textContent = `Tasks for Week ${weekNumber}`;
+                document.getElementById('weekly-hours-title').textContent = `Total Hours for Week ${weekNumber}`;
+                const weeklyTasks = tasks.filter(task => getScheduledWeeks(task).includes(parseInt(weekNumber)));
+                const taskListBody = document.getElementById('weekly-task-list');
+                taskListBody.innerHTML = weeklyTasks.length === 0 ? `<tr><td colspan="5" class="text-center py-10 text-gray-500">No tasks scheduled for this week.</td></tr>` :
+                    weeklyTasks.map(task => `<tr>
+                        <td class="px-4 py-2 text-sm text-gray-900">${task.asset}</td> <td class="px-4 py-2 text-sm text-gray-500">${task.subAsset}</td>
+                        <td class="px-4 py-2 text-sm text-gray-500">${task.description}</td> <td class="px-4 py-2 text-sm text-gray-500">${task.time}</td>
+                        <td class="px-4 py-2 text-sm"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${staticDb.statusColors[task.status].replace('bg-','bg-').replace('-500','-100')} ${staticDb.statusColors[task.status].replace('bg-','text-').replace('-500','-800')}">${task.status}</span></td>
+                        </tr>`).join('');
+                
+                const hoursSummary = document.getElementById('weekly-hours-summary');
+                hoursSummary.innerHTML = '';
+                const hoursByAsset = weeklyTasks.reduce((acc, task) => { acc[task.asset] = (acc[task.asset] || 0) + task.time; return acc; }, {});
+                let totalHours = 0;
+                Object.entries(hoursByAsset).forEach(([asset, hours]) => {
+                    hoursSummary.innerHTML += `<div class="p-3 bg-gray-50 rounded-lg"><div class="flex justify-between items-center"><span class="font-semibold text-gray-700">${asset}</span><span class="font-bold text-indigo-600">${hours.toFixed(1)} hrs</span></div></div>`;
+                    totalHours += hours;
+                });
+                if(Object.keys(hoursByAsset).length === 0){ hoursSummary.innerHTML = `<p class="text-center text-gray-500">No hours logged for this week.</p>`; } 
+                else { hoursSummary.innerHTML += `<div class="p-3 bg-gray-100 rounded-lg mt-4 border-t-2 border-gray-200"><div class="flex justify-between items-center"><span class="font-bold text-gray-800">Total</span><span class="font-extrabold text-xl text-indigo-800">${totalHours.toFixed(1)} hrs</span></div></div>`; }
+            };
+
+            const renderYearView = () => {
+                const container = document.getElementById('year-view-grid-container');
+                let headerHtml = `<div class="sticky top-0 z-10 grid year-view-grid bg-gray-100 p-2 rounded-t-lg"><div class="font-semibold text-sm sticky left-0 bg-gray-100 z-10 pl-2">Task</div>`;
+                for (let i = 1; i <= 52; i++) { headerHtml += `<div class="text-center text-xs font-mono">${i}</div>`; }
+                headerHtml += `</div>`;
+                
+                let bodyHtml = tasks.map(task => {
+                    let row = `<div class="grid year-view-grid border-b border-gray-200"><div class="text-xs font-medium text-gray-600 sticky left-0 bg-white z-10 p-2 border-r truncate" title="${task.asset} - ${task.subAsset}">${task.asset} - ${task.subAsset}</div>`;
+                    const scheduledWeeks = getScheduledWeeks(task);
+                    for (let i = 1; i <= 52; i++) {
+                        const isScheduled = scheduledWeeks.includes(i);
+                        const color = isScheduled ? staticDb.statusColors[task.status] || 'bg-gray-400' : 'bg-white';
+                        row += `<div class="text-center border-l ${color} h-6" title="Week ${i}: ${isScheduled ? task.description : 'No task'}"></div>`;
+                    }
+                    row += `</div>`;
+                    return row;
+                }).join('');
+
+                container.innerHTML = tasks.length > 0 ? headerHtml + bodyHtml : `<p class="text-center py-10 text-gray-500">No tasks to display in the year view.</p>`;
+            };
+
+            const renderDashboard = (filteredTasks = tasks) => {
+                const statusChart = document.getElementById('status-chart');
+                statusChart.innerHTML = '';
+                const statusCounts = staticDb.statuses.reduce((acc, status) => ({ ...acc, [status]: 0 }), {});
+                filteredTasks.forEach(task => statusCounts[task.status]++);
+                const totalTasks = filteredTasks.length;
+                if(totalTasks === 0) { statusChart.innerHTML = `<p class="text-center py-10 text-gray-500">No data for current filters.</p>`; }
+                else {
+                    staticDb.statuses.forEach(status => {
+                        const count = statusCounts[status];
+                        const percentage = ((count / totalTasks) * 100).toFixed(1);
+                        statusChart.innerHTML += `<div><div class="flex justify-between mb-1"><span class="text-base font-medium text-gray-700">${status} (${count})</span><span class="text-sm font-medium text-gray-500">${percentage}%</span></div><div class="w-full bg-gray-200 rounded-full h-2.5"><div class="${staticDb.statusColors[status]} h-2.5 rounded-full" style="width: ${percentage}%"></div></div></div>`;
+                    });
+                }
+
+                const workloadChart = document.getElementById('workload-chart');
+                workloadChart.innerHTML = '';
+                const weeklyHours = Array(52).fill(0);
+                filteredTasks.forEach(task => { getScheduledWeeks(task).forEach(week => { weeklyHours[week-1] += task.time; }); });
+                const maxHours = Math.max(...weeklyHours, 1);
+                weeklyHours.forEach((hours, index) => {
+                    const height = (hours / maxHours) * 100;
+                    workloadChart.innerHTML += `<div class="flex-1 group flex flex-col items-center"><span class="text-xs text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">${hours.toFixed(1)}h</span><div class="chart-bar w-full bg-indigo-200 hover:bg-indigo-400 rounded-t" style="height: ${height}%" title="Week ${index + 1}: ${hours.toFixed(1)} hours"></div><span class="text-xs text-gray-400">${index+1}</span></div>`;
+                });
+
+                const urgentTasksList = document.getElementById('urgent-tasks-list');
+                const urgentTasks = filteredTasks.filter(t => t.status === 'Open' || t.status === 'Postponed');
+                if(urgentTasks.length > 0) {
+                    let table = `<table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr><th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Asset</th><th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Task</th><th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th></tr></thead><tbody>`;
+                    urgentTasks.forEach(task => { table += `<tr><td class="px-4 py-2 text-sm font-medium">${task.asset} - ${task.subAsset}</td><td class="px-4 py-2 text-sm text-gray-600">${task.description}</td><td class="px-4 py-2 text-sm"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${staticDb.statusColors[task.status].replace('bg-','bg-').replace('-500','-100')} ${staticDb.statusColors[task.status].replace('bg-','text-').replace('-500','-800')}">${task.status}</span></td></tr>`; });
+                    table += `</tbody></table>`;
+                    urgentTasksList.innerHTML = table;
+                } else { urgentTasksList.innerHTML = `<p class="text-center py-8 text-gray-500">No open or postponed tasks found.</p>`; }
+            };
+
+            const applyFiltersAndRender = () => {
+                const selectedAsset = filterAsset.value;
+                const selectedType = filterType.value;
+                const selectedStatus = filterStatus.value;
+                const filtered = tasks.filter(task => (selectedAsset === 'All' || task.asset === selectedAsset) && (selectedType === 'All' || task.type === selectedType) && (selectedStatus === 'All' || task.status === selectedStatus));
+                renderDashboard(filtered);
+                renderPlanningTable(filtered);
+            };
+
+            const renderAssetManager = (plantName) => {
+                const plantConfig = plantConfigs.find(p => p.id === plantName);
+                if (!plantConfig) { assetManagerDiv.classList.add('hidden'); return; }
+                let html = `<div class="border-t pt-4 space-y-4"><div class="flex justify-between items-center"><h4 class="text-md font-semibold text-gray-800">Assets for ${plantConfig.name}</h4><button id="add-asset-btn" class="bg-blue-500 hover:bg-blue-600 text-white text-sm font-bold py-1 px-3 rounded-md">Add Asset</button></div>`;
+                if (plantConfig.assets && plantConfig.assets.length > 0) {
+                    plantConfig.assets.forEach((asset, assetIndex) => {
+                        html += `<div class="bg-gray-50 p-3 rounded-lg"><div class="flex justify-between items-center"><p class="font-semibold text-gray-700">${asset.name}</p><div><button class="add-sub-asset-btn text-green-600 hover:text-green-800 text-sm font-medium mr-3" data-asset-index="${assetIndex}">Add Sub-asset</button><button class="delete-asset-btn text-red-500 hover:text-red-700 font-bold" data-asset-index="${assetIndex}">✕</button></div></div><ul class="mt-2 pl-4 list-disc list-inside space-y-1">`;
+                        if (asset.subAssets && asset.subAssets.length > 0) {
+                             asset.subAssets.forEach((subAsset, subAssetIndex) => { html += `<li class="text-sm text-gray-600 flex justify-between items-center"><span>${subAsset}</span><button class="delete-sub-asset-btn text-red-500 hover:text-red-700 font-bold text-xs" data-asset-index="${assetIndex}" data-sub-asset-index="${subAssetIndex}">✕</button></li>`; });
+                        } else { html += `<li class="text-sm text-gray-400 italic">No sub-assets</li>`; }
+                        html += `</ul></div>`;
+                    });
+                } else { html += `<p class="text-center py-4 text-gray-500">No assets defined for this plant.</p>`; }
+                html += `</div>`;
+                assetManagerDiv.innerHTML = html;
+                assetManagerDiv.classList.remove('hidden');
+            };
+            
+            // --- CSV IMPORT ---
+            const handleCsvImport = (event) => {
+                const file = event.target.files[0]; if (!file) return;
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    const { tasksToUpload, skippedCount } = parseCsv(e.target.result);
+                    if (tasksToUpload.length > 0) {
+                        showLoading();
+                        await uploadTasks(tasksToUpload);
+                        hideLoading();
+                        alert(`Successfully imported ${tasksToUpload.length} tasks. Skipped ${skippedCount} rows.`);
+                    } else { alert(`Import failed. No valid tasks found. Skipped ${skippedCount} rows.`); }
+                    csvFileInput.value = '';
+                };
+                reader.readAsText(file);
+            };
+
+            const parseCsv = (csvText) => {
+                const lines = csvText.split(/\r\n|\n/).filter(line => line.trim() !== '');
+                if (lines.length < 2) return { tasksToUpload: [], skippedCount: lines.length };
+                const headers = lines[0].split(',').map(h => h.trim());
+                const requiredHeaders = ['asset', 'subAsset', 'description', 'type', 'frequency', 'startWeek', 'time', 'status'];
+                if (!requiredHeaders.every(h => headers.includes(h))) {
+                    alert('CSV is missing required headers: ' + requiredHeaders.join(', '));
+                    return { tasksToUpload: [], skippedCount: lines.length - 1 };
+                }
+                const tasksToUpload = []; let skippedCount = 0;
+                const currentPlantConfig = plantConfigs.find(p => p.id === currentPlantName);
+                if (!currentPlantConfig) { alert('Cannot import: No plant selected.'); return { tasksToUpload: [], skippedCount: lines.length - 1 }; }
+                for (let i = 1; i < lines.length; i++) {
+                    const values = lines[i].split(',');
+                    const rowData = headers.reduce((obj, h, idx) => { obj[h] = values[idx] ? values[idx].trim() : ''; return obj; }, {});
+                    const assetConfig = currentPlantConfig.assets.find(a => a.name === rowData.asset);
+                    const subAssetExists = assetConfig && assetConfig.subAssets.includes(rowData.subAsset);
+                    if (assetConfig && subAssetExists) {
+                        tasksToUpload.push({
+                            asset: rowData.asset, subAsset: rowData.subAsset, description: rowData.description || 'N/A',
+                            type: rowData.type || 'Corrective Maintenance (CM)', frequency: rowData.frequency || 'Monthly',
+                            startWeek: parseInt(rowData.startWeek) || 1, time: parseFloat(rowData.time) || 0, status: rowData.status || 'Open'
+                        });
+                    } else { skippedCount++; console.warn(`Skipping row ${i+1}: Asset/Sub-asset not found.`); }
+                }
+                return { tasksToUpload, skippedCount };
+            };
+
+            const uploadTasks = async (tasksToUpload) => {
+                const batch = writeBatch(db);
+                const tasksCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'plants', currentPlantName, 'tasks');
+                tasksToUpload.forEach(taskData => { const newDocRef = doc(tasksCollectionRef); batch.set(newDocRef, taskData); });
+                try { await batch.commit(); } catch (error) { console.error("Error batch uploading tasks:", error); alert("CSV import failed."); }
+            };
+
+            // --- EVENT LISTENERS ---
+            document.getElementById('asset').addEventListener('change', (e) => populateSubAssetDropdown(e.target.value));
+            plantSelector.addEventListener('change', (e) => switchPlant(e.target.value));
+            exportCsvBtn.addEventListener('click', () => {
+                const filtered = tasks.filter(task => (filterAsset.value === 'All' || task.asset === filterAsset.value) && (filterType.value === 'All' || task.type === filterType.value) && (filterStatus.value === 'All' || task.status === filterStatus.value));
+                exportToCsv(filtered);
+            });
+            downloadTemplateBtn.addEventListener('click', downloadCsvTemplate);
+            importCsvBtn.addEventListener('click', () => csvFileInput.click());
+            csvFileInput.addEventListener('change', handleCsvImport);
+            navTabs.addEventListener('click', (e) => {
+                 if(e.target.tagName === 'BUTTON'){
+                    document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+                    e.target.classList.add('active');
+                    document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+                    document.getElementById(`${e.target.dataset.tab}-view`).classList.remove('hidden');
+                }
+            });
+            taskForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const id = document.getElementById('task-id').value;
+                const taskData = {
+                    asset: document.getElementById('asset').value, subAsset: document.getElementById('sub-asset').value,
+                    description: document.getElementById('task-description').value, type: document.getElementById('maintenance-type').value,
+                    frequency: document.getElementById('frequency').value, startWeek: parseInt(document.getElementById('start-week').value),
+                    time: parseFloat(document.getElementById('required-time').value), status: document.getElementById('status').value
+                };
+                const tasksCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'plants', currentPlantName, 'tasks');
+                try {
+                    if (id) { await setDoc(doc(tasksCollectionRef, id), taskData); } 
+                    else { await addDoc(tasksCollectionRef, taskData); }
+                    closeModal();
+                } catch(error) { console.error("Error saving task:", error); alert("Could not save task."); }
+            });
+            planningTableBody.addEventListener('click', async (e) => {
+                if (e.target.classList.contains('edit-btn')) { openModal(tasks.find(t => t.id === e.target.dataset.id)); }
+                if (e.target.classList.contains('delete-btn')) {
+                    if(confirm('Are you sure you want to delete this task?')) {
+                        try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'plants', currentPlantName, 'tasks', e.target.dataset.id)); } 
+                        catch(error) { console.error("Error deleting task:", error); alert("Could not delete task."); }
+                    }
+                }
+            });
+            addPlantForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const newPlantName = document.getElementById('new-plant-name').value.trim();
+                if (!newPlantName) return;
+                const plantDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'plants', newPlantName);
+                try {
+                    await setDoc(plantDocRef, { name: newPlantName, assets: [] });
+                    addPlantForm.reset(); editPlantSelector.value = newPlantName; renderAssetManager(newPlantName);
+                } catch (error) { console.error("Error adding plant:", error); alert("Could not add plant."); }
+            });
+            editPlantSelector.addEventListener('change', (e) => renderAssetManager(e.target.value));
+            assetManagerDiv.addEventListener('click', async (e) => {
+                const plantName = editPlantSelector.value; if (!plantName) return;
+                const plantRef = doc(db, 'artifacts', appId, 'public', 'data', 'plants', plantName);
+                const plantConfig = plantConfigs.find(p => p.id === plantName);
+                let assets = JSON.parse(JSON.stringify(plantConfig.assets || []));
+                if (e.target.id === 'add-asset-btn') {
+                    const assetName = prompt('Enter new asset name:');
+                    if (assetName && !assets.some(a => a.name === assetName)) { assets.push({ name: assetName, subAssets: [] }); await updateDoc(plantRef, { assets }); } 
+                    else if(assetName) { alert("Asset name already exists."); }
+                }
+                if (e.target.classList.contains('delete-asset-btn')) {
+                    const assetIndex = parseInt(e.target.dataset.assetIndex);
+                    if (confirm(`Delete asset "${assets[assetIndex].name}"?`)) { assets.splice(assetIndex, 1); await updateDoc(plantRef, { assets }); }
+                }
+                if (e.target.classList.contains('add-sub-asset-btn')) {
+                    const assetIndex = parseInt(e.target.dataset.assetIndex);
+                    const subAssetName = prompt(`New sub-asset for "${assets[assetIndex].name}":`);
+                    if (subAssetName && !assets[assetIndex].subAssets.includes(subAssetName)) { assets[assetIndex].subAssets.push(subAssetName); await updateDoc(plantRef, { assets }); } 
+                    else if (subAssetName) { alert("Sub-asset name already exists."); }
+                }
+                if (e.target.classList.contains('delete-sub-asset-btn')) {
+                    const assetIndex = parseInt(e.target.dataset.assetIndex);
+                    const subAssetIndex = parseInt(e.target.dataset.subAssetIndex);
+                     if (confirm(`Delete sub-asset "${assets[assetIndex].subAssets[subAssetIndex]}"?`)) { assets[assetIndex].subAssets.splice(subAssetIndex, 1); await updateDoc(plantRef, { assets }); }
+                }
+            });
+            weekSelector.addEventListener('input', (e) => renderWeeklyView(e.target.value));
+            [filterAsset, filterType, filterStatus].forEach(el => el.addEventListener('change', applyFiltersAndRender));
+            resetFiltersBtn.addEventListener('click', () => { filterAsset.value = 'All'; filterType.value = 'All'; filterStatus.value = 'All'; applyFiltersAndRender(); });
+            addTaskBtn.addEventListener('click', () => openModal());
+            closeModalBtn.addEventListener('click', closeModal);
+            modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+            reportTypeSelector.addEventListener('change', (e) => {
+                populateDropdown(reportPeriodSelector, reportPeriods[e.target.value]);
+            });
+            generatePdfBtn.addEventListener('click', generatePdfReport);
+            
+            // --- INITIALIZATION ---
+            const initialize = async () => {
+                populateDropdown(document.getElementById('maintenance-type'), staticDb.maintenanceTypes);
+                populateDropdown(document.getElementById('frequency'), staticDb.frequencies);
+                populateDropdown(document.getElementById('status'), staticDb.statuses);
+                
+                populateDropdown(filterType, staticDb.maintenanceTypes, true);
+                populateDropdown(filterStatus, staticDb.statuses, true);
+                populateDropdown(reportPeriodSelector, reportPeriods.weekly);
+                const now = new Date(); const start = new Date(now.getFullYear(), 0, 1);
+                const diff = (now - start) + ((start.getTimezoneOffset() - now.getTimezoneOffset()) * 60 * 1000);
+                const day = Math.floor(diff / (1000 * 60 * 60 * 24));
+                weekSelector.value = Math.ceil(day / 7);
+                await setupInitialData();
+                listenForPlants();
+            };
+            initialize();
+        });
+    </script>
+</body>
+</html>
+
