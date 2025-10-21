@@ -103,6 +103,7 @@
 <body class="antialiased text-gray-800">
 
     <div id="loading-overlay" class="fixed inset-0 bg-white/70 backdrop-blur-sm flex items-center justify-center z-50">
+        <!-- Content will be replaced by JS on error -->
         <div class="loader"></div>
     </div>
 
@@ -510,14 +511,35 @@
             measurementId: "G-FPNV2407ER"
         };
         
+        // --- UTILITY FUNCTIONS (Define show/hideLoading FIRST) ---
+         const showLoading = () => {
+             const loadingOverlay = document.getElementById('loading-overlay');
+             if(loadingOverlay) { // Check if element exists
+                loadingOverlay.classList.remove('hidden');
+                setTimeout(() => loadingOverlay.classList.remove('opacity-0'), 10);
+             }
+         };
+
+         const hideLoading = () => {
+             const loadingOverlay = document.getElementById('loading-overlay');
+              if(loadingOverlay) { // Check if element exists
+                loadingOverlay.classList.add('opacity-0');
+                setTimeout(() => loadingOverlay.classList.add('hidden'), 300);
+             }
+         };
+
         // --- FIREBASE INITIALIZATION ---
         const initializeFirebase = async (config, providedAppId) => {
+             // Moved loadingOverlay ref inside for better error display scope
+            const loadingOverlay = document.getElementById('loading-overlay');
             try {
                 if (!config || Object.keys(config).length === 0) {
                     throw new Error("Firebase configuration is missing.");
                 }
+                // Simplified App ID check
                 if (!providedAppId) {
-                    throw new Error("App ID is missing.");
+                   providedAppId = 'default-maintenance-app'; // Use a fixed default if none provided
+                   console.warn("App ID not provided, using default:", providedAppId);
                 }
                 
                 const app = initializeApp(config);
@@ -525,13 +547,13 @@
                 auth = getAuth(app);
                 setLogLevel('debug');
 
-                // --- MODIFICATION START: Always use anonymous sign-in ---
+                // --- Force anonymous sign-in ---
                 await signInAnonymously(auth);
-                // --- MODIFICATION END ---
 
                 userId = auth.currentUser?.uid;
                 if (!userId) {
-                    throw new Error("Authentication failed, user ID is not available.");
+                    // This error is more likely if anonymous sign-in failed/is disabled
+                    throw new Error("Authentication failed: Could not get user ID after anonymous sign-in.");
                 }
                 
                 appId = providedAppId; // Set the global appId
@@ -540,66 +562,66 @@
 
             } catch (error) {
                 console.error("Firebase initialization failed:", error);
-                const loadingOverlay = document.getElementById('loading-overlay');
                 let errorMessage;
-                 // Handle specific errors
-                if (error.code === 'auth/operation-not-allowed' || error.message.includes("Authentication failed")) { // Updated error code check
+                 // Handle specific errors for anonymous sign-in
+                if (error.code === 'auth/operation-not-allowed') {
                      errorMessage = `
-                        <div class="text-center p-4">
-                            <h2 class="text-xl font-bold text-red-600">Firebase Authentication Error</h2>
-                            <p class="text-gray-700 mt-2">Anonymous sign-in might be disabled in your project, or authentication failed.</p>
+                        <div class="text-center p-4 max-w-lg mx-auto bg-red-100 border border-red-300 rounded-md shadow-md">
+                            <h2 class="text-xl font-bold text-red-700">Firebase Authentication Error</h2>
+                            <p class="text-gray-700 mt-2">Anonymous sign-in is not enabled for this Firebase project.</p>
                             <p class="text-gray-600 mt-4 text-sm"><b>Action Required:</b></p>
-                            <ol class="text-left text-sm text-gray-600 list-decimal list-inside mt-2 bg-gray-100 p-3 rounded">
-                                <li>Go to your <a href="https://console.firebase.google.com/" target="_blank" class="text-blue-600 underline">Firebase Console</a>.</li>
-                                <li>Select your project: <b>${config.projectId || 'YOUR_PROJECT_ID'}</b>.</li>
-                                <li>Go to <b>Build > Authentication</b> > <b>Sign-in method</b> tab.</li>
-                                <li>Enable the <b>Anonymous</b> provider.</li>
-                                <li>Refresh this page.</li>
+                            <ol class="text-left text-sm text-gray-600 list-decimal list-inside mt-2 bg-red-50 p-3 rounded">
+                                <li>Go to your <a href="https://console.firebase.google.com/" target="_blank" class="text-blue-600 underline hover:text-blue-800">Firebase Console</a>.</li>
+                                <li>Select your project: <b>${config.projectId || 'maintenanceplan-2ec9f'}</b>.</li>
+                                <li>Navigate to <b>Build > Authentication</b>.</li>
+                                <li>Click on the <b>Sign-in method</b> tab.</li>
+                                <li>Find <b>Anonymous</b> in the list of providers and click the pencil icon to edit.</li>
+                                <li>Enable the toggle switch and click <b>Save</b>.</li>
+                                <li><b>Refresh this page</b> after enabling anonymous sign-in.</li>
                             </ol>
                         </div>`;
-                } else {
-                        errorMessage = `
-                        <div class="text-center p-4">
-                            <h2 class="text-xl font-bold text-red-600">Initialization Failed</h2>
-                            <p class="text-gray-700 mt-2">${error.message}.</p>
-                            <p class="text-gray-600 mt-4 text-sm">Please check the hardcoded Firebase configuration in the script.</p>
+                } else if (error.message.includes("configuration is missing")) {
+                     errorMessage = `
+                        <div class="text-center p-4 max-w-md mx-auto bg-red-100 border border-red-300 rounded-md shadow-md">
+                            <h2 class="text-xl font-bold text-red-700">Configuration Error</h2>
+                            <p class="text-gray-700 mt-2">The hardcoded Firebase configuration object in the script seems to be missing or invalid.</p>
+                             <p class="text-gray-600 mt-4 text-sm">Please verify the <code class="text-xs bg-gray-200 p-1 rounded">firebaseConfig</code> variable in the &lt;script type="module"&gt; section.</p>
                         </div>`;
                 }
-                 loadingOverlay.innerHTML = errorMessage; // Show error on the loading overlay
+                else { // Generic error
+                        errorMessage = `
+                        <div class="text-center p-4 max-w-md mx-auto bg-red-100 border border-red-300 rounded-md shadow-md">
+                            <h2 class="text-xl font-bold text-red-700">Initialization Failed</h2>
+                            <p class="text-gray-700 mt-2">An unexpected error occurred during Firebase setup:</p>
+                            <pre class="mt-2 text-xs text-left bg-red-50 p-2 rounded overflow-x-auto">${error.message}\n${error.stack ? error.stack.substring(0, 300)+'...' : ''}</pre>
+                            <p class="text-gray-600 mt-4 text-sm">Check the browser console for more details and ensure the Firebase configuration is correct.</p>
+                        </div>`;
+                }
+                 if (loadingOverlay) { // Check if overlay exists before modifying
+                     loadingOverlay.innerHTML = errorMessage; // Show specific error on the loading overlay
+                     loadingOverlay.classList.remove('hidden'); // Ensure overlay is visible
+                     loadingOverlay.classList.remove('opacity-0');
+                 }
                 return false; // Failure
             }
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
-            const loadingOverlay = document.getElementById('loading-overlay');
-            // Determine App ID (use injected if available, otherwise prompt)
-            let localAppId = null;
-            if (typeof __app_id !== 'undefined') {
-                localAppId = __app_id;
-            } else {
-                localAppId = localStorage.getItem('appId');
-                 if (!localAppId) {
-                    // Simple prompt as fallback if config modal is removed
-                    localAppId = prompt("Please enter a unique App ID for your data (e.g., 'main-dashboard'):", "default-app-id");
-                    if (!localAppId) localAppId = 'default-app-id'; // Default if prompt is cancelled
-                    localStorage.setItem('appId', localAppId);
-                }
-            }
+             // --- MODIFICATION: Simplified App ID determination ---
+            const localAppId = typeof __app_id !== 'undefined' ? __app_id : 'maintenance-dashboard-app'; // Use injected or fixed default
 
-            // Attempt initialization with hardcoded config and determined App ID
+            // Attempt initialization
             const success = await initializeFirebase(firebaseConfig, localAppId);
             if (success) {
-                startApp();
-            } else {
-                 // Error handled by initializeFirebase, overlay shows the message.
-                 // We don't need to do anything else here.
+                startApp(); // Proceed only if initialization is successful
             }
+            // If initialization fails, the error message is already shown by initializeFirebase
         });
 
         // This function contains the rest of the original DOMContentLoaded logic
         const startApp = () => {
              // Ensure loading overlay is hidden once app starts
-            const loadingOverlay = document.getElementById('loading-overlay');
+             // const loadingOverlay = document.getElementById('loading-overlay'); // No need to get ref again
             hideLoading(); // Call hideLoading here
 
             // --- DATABASE & LISTS (Static Config) ---
@@ -731,26 +753,25 @@
                 setTimeout(() => promptInput.focus(), 100);
             };
             
-            // --- UTILITY FUNCTIONS ---
+            // --- UTILITY FUNCTIONS (Defined earlier) ---
             const getScheduledWeeks = (task) => {
                 const weeks = [];
                 // Handle legacy frequency mapping
                 const freqName = task.frequency;
                 const freq = frequencyInWeeks[freqName] || (globalSettings.frequencies.includes(freqName) ? 52 : 52); // Default to annual if unknown
                 if (!freq) return weeks;
-                for (let i = task.startWeek; i <= 52; i += freq) { weeks.push(i); }
+                // Ensure startWeek is a valid number
+                let startWk = parseInt(task.startWeek); // Use let
+                 if (isNaN(startWk) || startWk < 1 || startWk > 52) {
+                    console.warn(`Invalid startWeek (${task.startWeek}) for task: ${task.description}. Defaulting to 1.`);
+                    startWk = 1;
+                 }
+
+                for (let i = startWk; i <= 52; i += freq) { weeks.push(i); }
                 return weeks;
             };
             
-            const showLoading = () => {
-                loadingOverlay.classList.remove('hidden');
-                setTimeout(() => loadingOverlay.classList.remove('opacity-0'), 10);
-            };
-
-            const hideLoading = () => {
-                loadingOverlay.classList.add('opacity-0');
-                setTimeout(() => loadingOverlay.classList.add('hidden'), 300);
-            };
+            // showLoading and hideLoading defined before initializeFirebase
 
             const exportToCsv = (filteredTasks) => {
                 const headers = ['id', 'Asset', 'Task Description', 'Type', 'Frequency', 'Start Week', 'Time (hrs)', 'Status'];
@@ -762,7 +783,7 @@
                 const encodedUri = encodeURI(csvContent);
                 const link = document.createElement("a");
                 link.setAttribute("href", encodedUri);
-                const locationName = currentLocationName.replace(/\s+/g, '_');
+                const locationName = currentLocationName ? currentLocationName.replace(/\s+/g, '_') : 'export'; // Handle null currentLocationName
                 link.setAttribute("download", `maintenance_plan_${locationName}.csv`);
                 document.body.appendChild(link);
                 link.click();
@@ -773,7 +794,7 @@
                 const headers = ['asset', 'description', 'type', 'frequency', 'startWeek', 'time', 'status'];
                 const locationConfig = locationConfigs.find(p => p.id === currentLocationName);
                 let exampleAsset = 'Line 1'; // Default example
-                if (locationConfig && locationConfig.assets.length > 0) {
+                if (locationConfig && locationConfig.assets && locationConfig.assets.length > 0) {
                     exampleAsset = locationConfig.assets[0].name;
                     if (locationConfig.assets[0].children && locationConfig.assets[0].children.length > 0) {
                         exampleAsset = locationConfig.assets[0].children[0].name; // Use a sub-asset if possible
@@ -807,16 +828,25 @@
                 doc.text(title, 14, 22);
                 doc.setFontSize(11);
                 doc.setTextColor(100);
-                doc.text(`Location: ${currentLocationName}`, 14, 30);
+                doc.text(`Location: ${currentLocationName || 'N/A'}`, 14, 30); // Handle null currentLocationName
                 doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 36);
 
                 let periodTasks = [];
                 if(reportType === 'Weekly'){
                     const weekNumber = parseInt(period.replace('Week ', ''));
-                    periodTasks = tasks.filter(task => getScheduledWeeks(task).includes(weekNumber));
+                    if (!isNaN(weekNumber)) {
+                         periodTasks = tasks.filter(task => getScheduledWeeks(task).includes(weekNumber));
+                    }
                 } else {
-                    const { start, end } = weeksInPeriod[period];
-                    periodTasks = tasks.filter(task => getScheduledWeeks(task).some(w => w >= start && w <= end));
+                    const periodInfo = weeksInPeriod[period];
+                    if (periodInfo && periodInfo.start && periodInfo.end) { // Check if period exists in weeksInPeriod
+                        const { start, end } = periodInfo;
+                        periodTasks = tasks.filter(task => getScheduledWeeks(task).some(w => w >= start && w <= end));
+                    } else {
+                        console.error("Invalid period selected for report:", period);
+                        showAlert(`Invalid period "${period}" selected for report.`, true);
+                        return;
+                    }
                 }
 
                 const head = [['Asset', 'Description', 'Type', 'Time (hrs)', 'Status']];
@@ -834,22 +864,34 @@
                     });
                 }
                 
-                doc.save(`report_${currentLocationName.replace(/\s+/g, '_')}_${period.replace(/\s+/g, '_')}.pdf`);
+                const safeLocationName = currentLocationName ? currentLocationName.replace(/\s+/g, '_') : 'report';
+                const safePeriod = period.replace(/\s+/g, '_').replace(/[\(\)]/g, ''); // Sanitize filename further
+                doc.save(`report_${safeLocationName}_${safePeriod}.pdf`);
             };
 
 
             // --- DATA HANDLING ---
             const setupInitialData = async () => {
+                 // Check if locations already exist before attempting to create samples
                 const locationsCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'locations');
+                const existingLocationsSnapshot = await getDocs(locationsCollectionRef);
+                if (!existingLocationsSnapshot.empty) {
+                    console.log("Locations already exist, skipping initial data setup.");
+                    return; // Don't create sample data if locations exist
+                }
+                
                 const locationADocRef = doc(locationsCollectionRef, 'Location A');
                 const locationBDocRef = doc(locationsCollectionRef, 'Location B');
-                
+                console.log("Attempting to create initial sample data...");
+
                 try {
                     await runTransaction(db, async (transaction) => {
+                         // Double-check inside transaction (though less likely needed now)
                         const locationADoc = await transaction.get(locationADocRef);
                         const locationBDoc = await transaction.get(locationBDocRef);
 
                         if (!locationADoc.exists()) {
+                            console.log("Creating data for Location A...");
                             transaction.set(locationADocRef, {
                                 name: 'Location A',
                                 assets: [
@@ -872,6 +914,7 @@
                         }
 
                         if (!locationBDoc.exists()) {
+                             console.log("Creating data for Location B...");
                             transaction.set(locationBDocRef, {
                                 name: 'Location B',
                                 assets: [
@@ -889,9 +932,13 @@
                             transaction.set(task1B, { asset: 'Robot Arm 1', description: 'Calibrate sensors', type: 'Corrective Maintenance (CM)', frequency: 'Quarterly', startWeek: 5, time: 4, status: 'Open' });
                         }
                     });
+                     console.log("Initial data setup transaction completed.");
                 } catch (e) {
                     console.error("Transaction for initial data failed: ", e);
-                    showAlert("Could not create initial sample data. You may need to enable Firestore.", true);
+                    // Avoid showing alert if data likely exists but transaction failed for other reasons (e.g., contention)
+                     if (e.message.includes("does not exist") || e.code === 'permission-denied') { // Be more specific if possible
+                        showAlert("Could not create initial sample data. You may need to enable Firestore or check database security rules.", true);
+                    }
                 }
             };
 
@@ -901,6 +948,7 @@
                     if (docSnap.exists()) {
                         globalSettings = { ...defaultSettings, ...docSnap.data() };
                     } else {
+                         console.log("Global settings not found, creating defaults...");
                         globalSettings = { ...defaultSettings };
                         setDoc(settingsRef, globalSettings).catch(e => console.error("Could not create global settings", e));
                     }
@@ -916,7 +964,7 @@
                     renderSettingsLists();
                 }, error => {
                     console.error("Error fetching global settings:", error);
-                    showAlert(`Error fetching settings: ${error.message}`, true);
+                    showAlert(`Error fetching settings: ${error.message}. Firestore might be unavailable or permissions incorrect.`, true);
                 });
             };
 
@@ -927,55 +975,112 @@
                     populateLocationSelector();
                     populateEditLocationSelector();
                     
-                    if (!currentLocationName && locationConfigs.length > 0) { 
-                        switchLocation(locationConfigs[0].id); 
+                    // --- MODIFICATION: Ensure switchLocation happens only once initially ---
+                    if (!currentLocationName && locationConfigs.length > 0) {
+                         console.log("Initial location load, switching to:", locationConfigs[0].id);
+                        switchLocation(locationConfigs[0].id);
                     } else if (currentLocationName) {
-                        // Refresh asset manager and filters if current location data changed
+                        // Check if the current location still exists or needs refresh
                         const locationConfig = locationConfigs.find(p => p.id === currentLocationName);
                         if (locationConfig) {
-                            renderAssetManager(currentLocationName); // Re-render tree
-                            populateAssetTreeOptions(filterAsset, locationConfig.assets || [], true);
+                            // Only re-render asset manager if necessary (e.g., assets changed)
+                            // This basic check might need refinement based on actual data structure changes
+                             // For simplicity, always re-render for now
+                             renderAssetManager(currentLocationName);
+                             populateAssetTreeOptions(filterAsset, locationConfig.assets || [], true);
                         } else {
                             // The location we were watching was deleted
+                            console.log(`Current location "${currentLocationName}" deleted. Switching.`);
                             currentLocationName = null;
                             tasks = [];
                             if (locationConfigs.length > 0) {
                                 switchLocation(locationConfigs[0].id);
+                            } else {
+                                // Handle case where no locations are left
+                                console.log("No locations left after deletion.");
+                                locationSelector.innerHTML = '';
+                                editLocationSelector.innerHTML = '<option value="" disabled selected>-- Select a location --</option>';
+                                tasks = [];
+                                applyFiltersAndRender();
+                                renderWeeklyView(weekSelector.value || 1);
+                                renderYearView();
+                                assetManagerDiv.innerHTML = '<p class="text-center py-4 text-gray-500">No locations available.</p>';
+                                assetManagerDiv.classList.remove('hidden');
+                                hideLoading();
                             }
                         }
-                    }
-                    if (locationConfigs.length === 0) { 
-                        hideLoading(); 
+                    } else if (locationConfigs.length === 0) {
+                        // No locations exist at all
+                        console.log("No locations found in database.");
+                        hideLoading();
                         showAlert("No locations found. Please add a location in the Settings tab.");
+                         // Clear UI related to locations/tasks
+                        locationSelector.innerHTML = '';
+                        editLocationSelector.innerHTML = '<option value="" disabled selected>-- Select a location --</option>';
+                        tasks = [];
+                        applyFiltersAndRender();
+                        renderWeeklyView(weekSelector.value || 1);
+                        renderYearView();
+                        assetManagerDiv.innerHTML = '<p class="text-center py-4 text-gray-500">No locations available.</p>';
+                         assetManagerDiv.classList.remove('hidden'); // Show the message
                     }
                 }, error => {
                     console.error("Error fetching locations:", error);
-                    showAlert(`Error fetching locations: ${error.message}`, true);
+                    showAlert(`Error fetching locations: ${error.message}. Firestore might be unavailable or permissions incorrect.`, true);
                     hideLoading();
                 });
             };
 
             const switchLocation = (locationName) => {
-                if (!locationName || currentLocationName === locationName) return;
+                if (!locationName) {
+                    console.warn("switchLocation called with empty locationName");
+                    return;
+                }
+                 // Prevent re-switching if already on the target location
+                if (currentLocationName === locationName) {
+                     console.log(`Already on location: ${locationName}, skipping switch.`);
+                      // Still ensure UI reflects the current state, might be needed after deletion/re-add
+                     applyFiltersAndRender();
+                     renderWeeklyView(weekSelector.value || 1);
+                     renderYearView();
+                     hideLoading(); // Ensure loading is hidden
+                    return;
+                }
+
+                console.log(`Switching to location: ${locationName}`);
                 showLoading();
                 currentLocationName = locationName;
-                locationSelector.value = locationName;
+                locationSelector.value = locationName; // Update main selector
+                 // Also update the edit selector if it exists
+                 if (editLocationSelector) {
+                     editLocationSelector.value = locationName;
+                     const hasSelection = !!locationName;
+                     renameLocationBtn.disabled = !hasSelection;
+                     deleteLocationBtn.disabled = !hasSelection;
+                     renderAssetManager(locationName); // Re-render asset tree for the selected location
+                 }
                 
                 const locationConfig = locationConfigs.find(p => p.id === locationName);
                 populateAssetTreeOptions(filterAsset, locationConfig?.assets || [], true);
                 
                 unsubscribeTasks(); // Stop listening to old location's tasks
+                tasks = []; // Clear tasks before loading new ones
                 
                 const tasksCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'locations', locationName, 'tasks');
                 unsubscribeTasks = onSnapshot(tasksCollectionRef, (snapshot) => {
+                     console.log(`Received ${snapshot.docs.length} tasks for ${locationName}`);
                     tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     applyFiltersAndRender();
                     renderWeeklyView(weekSelector.value || 1);
                     renderYearView();
-                    hideLoading();
+                    hideLoading(); // Hide loading *after* rendering
                 }, error => { 
                     console.error(`Error fetching tasks for ${locationName}:`, error); 
-                    showAlert(`Error fetching tasks: ${error.message}`, true);
+                    showAlert(`Error fetching tasks: ${error.message}. Firestore might be unavailable or permissions incorrect.`, true);
+                    tasks = []; // Clear tasks on error
+                    applyFiltersAndRender(); // Re-render empty state
+                    renderWeeklyView(weekSelector.value || 1);
+                    renderYearView();
                     hideLoading(); 
                 });
             };
@@ -989,16 +1094,27 @@
                 if (task) {
                     document.getElementById('modal-title').textContent = 'Edit Task';
                     document.getElementById('task-id').value = task.id;
-                    document.getElementById('asset').value = task.asset;
+                    document.getElementById('asset').value = task.asset; // Make sure this value exists in dropdown
                     document.getElementById('task-description').value = task.description;
                     document.getElementById('maintenance-type').value = task.type;
                     document.getElementById('frequency').value = task.frequency;
                     document.getElementById('start-week').value = task.startWeek;
                     document.getElementById('required-time').value = task.time;
                     document.getElementById('status').value = task.status;
+                     // Verify asset exists in dropdown, fallback if necessary
+                    const assetDropdown = document.getElementById('asset');
+                    if (!Array.from(assetDropdown.options).some(opt => opt.value === task.asset)) {
+                        console.warn(`Asset "${task.asset}" for task ID "${task.id}" not found in dropdown. Task might be orphaned or asset renamed/deleted.`);
+                        // Optionally add the asset temporarily or show a warning
+                        // For now, let it select the first option or be blank
+                    }
+
                 } else {
                     document.getElementById('modal-title').textContent = 'Add New Task';
                     document.getElementById('task-id').value = '';
+                    // Set default status if needed, e.g., 'Open'
+                     document.getElementById('status').value = globalSettings.statuses.includes('Open') ? 'Open' : (globalSettings.statuses[0] || '');
+
                 }
                 showModal(modal);
             };
@@ -1010,41 +1126,92 @@
             // --- DROPDOWN POPULATION ---
             const populateLocationSelector = () => {
                 const currentVal = locationSelector.value;
-                locationSelector.innerHTML = '';
-                locationConfigs.forEach(loc => { locationSelector.innerHTML += `<option value="${loc.id}">${loc.name}</option>`; });
-                if (currentVal) locationSelector.value = currentVal;
+                 // Keep track of the currently selected location if it still exists
+                 const validCurrentVal = locationConfigs.some(loc => loc.id === currentVal) ? currentVal : null;
+
+                locationSelector.innerHTML = ''; // Clear existing options
+                 if (locationConfigs.length === 0) {
+                     locationSelector.innerHTML = '<option value="" disabled selected>No locations</option>';
+                 } else {
+                    locationConfigs.forEach(loc => {
+                        const selected = (loc.id === validCurrentVal) ? 'selected' : '';
+                        locationSelector.innerHTML += `<option value="${loc.id}" ${selected}>${loc.name}</option>`;
+                    });
+                     // If no previous valid value, select the first one
+                     if (!validCurrentVal && locationConfigs.length > 0) {
+                        locationSelector.value = locationConfigs[0].id;
+                    }
+                 }
             };
 
             const populateEditLocationSelector = () => {
                 const currentVal = editLocationSelector.value;
+                // Keep track of the currently selected location if it still exists
+                const validCurrentVal = locationConfigs.some(loc => loc.id === currentVal) ? currentVal : null;
+
                 editLocationSelector.innerHTML = '<option value="" disabled selected>-- Select a location --</option>';
-                locationConfigs.forEach(loc => { editLocationSelector.innerHTML += `<option value="${loc.id}">${loc.name}</option>`; });
-                if (currentVal) editLocationSelector.value = currentVal;
+                 if (locationConfigs.length > 0) {
+                    locationConfigs.forEach(loc => {
+                         const selected = (loc.id === validCurrentVal) ? 'selected' : '';
+                        editLocationSelector.innerHTML += `<option value="${loc.id}" ${selected}>${loc.name}</option>`;
+                    });
+                     // Re-select the valid value if it existed
+                     if (validCurrentVal) {
+                         editLocationSelector.value = validCurrentVal;
+                     }
+                 }
+                 // Update button states based on selection
+                const hasSelection = !!editLocationSelector.value;
+                renameLocationBtn.disabled = !hasSelection;
+                deleteLocationBtn.disabled = !hasSelection;
             };
 
+
             const populateDropdown = (selectEl, options, includeAll = false) => {
+                 if (!selectEl) return; // Guard against null elements
                 const currentVal = selectEl.value;
                 selectEl.innerHTML = '';
                 if(includeAll) { selectEl.innerHTML += `<option value="All">All</option>`; }
-                if (options) {
-                    options.forEach(option => { selectEl.innerHTML += `<option value="${option}">${option}</option>`; });
+                if (options && Array.isArray(options)) { // Check if options is an array
+                    options.forEach(option => {
+                        if (typeof option === 'string' || typeof option === 'number') { // Ensure option is primitive
+                           selectEl.innerHTML += `<option value="${option}">${option}</option>`;
+                        }
+                     });
                 }
-                if (currentVal && Array.from(selectEl.options).some(o => o.value === currentVal)) {
+                 // Try to reselect the previous value if it's still valid
+                 if (currentVal && Array.from(selectEl.options).some(o => o.value === currentVal)) {
                     selectEl.value = currentVal;
-                }
+                } else if (!includeAll && options && options.length > 0) {
+                    // Default to the first option if no 'All' and previous value invalid/missing
+                    // selectEl.value = options[0]; // Avoid defaulting selection unless necessary
+                 } else if (includeAll) {
+                     selectEl.value = "All"; // Default to 'All' if applicable
+                 }
             };
 
             // New function to populate dropdowns with the asset tree
             const populateAssetTreeOptions = (selectEl, assets, includeAll = false) => {
+                if (!selectEl) return; // Guard against null elements
                 const currentVal = selectEl.value;
-                let optionsHtml = includeAll ? '<option value="All">All</option>' : '';
+                 let optionsHtml = '';
+                 // Ensure the 'All' option is correctly handled
+                if (includeAll) {
+                    optionsHtml = '<option value="All">All</option>';
+                 } else {
+                     // Add a default prompt if not including 'All' and assets might be empty
+                     optionsHtml = '<option value="" disabled selected>-- Select Asset --</option>';
+                 }
+
 
                 const getOptions = (nodes, level) => {
                     let html = '';
                     const indent = '&nbsp;&nbsp;'.repeat(level);
-                    const prefix = level > 0 ? 'L ' : '';
+                    const prefix = level > 0 ? '↳ ' : ''; // Use a different prefix
                     nodes.forEach(node => {
-                        html += `<option value="${node.name}">${indent}${prefix}${node.name}</option>`;
+                         // Escape HTML characters in asset names for safety
+                        const safeName = node.name.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                        html += `<option value="${safeName}">${indent}${prefix}${safeName}</option>`;
                         if (node.children && node.children.length > 0) {
                             html += getOptions(node.children, level + 1);
                         }
@@ -1052,13 +1219,24 @@
                     return html;
                 };
 
-                optionsHtml += getOptions(assets, 0);
+                 // Check if assets is a valid array
+                 if (Array.isArray(assets)) {
+                    optionsHtml += getOptions(assets, 0);
+                } else {
+                    console.warn("Invalid assets data provided to populateAssetTreeOptions:", assets);
+                 }
+
                 selectEl.innerHTML = optionsHtml;
 
+                 // Try to re-select the previous value if it's still valid
                 if (currentVal && Array.from(selectEl.options).some(o => o.value === currentVal)) {
                     selectEl.value = currentVal;
-                }
+                 } else if (includeAll) {
+                     selectEl.value = "All"; // Default to 'All'
+                 }
+                 // No default selection if includeAll is false and previous value invalid
             };
+
 
             // --- RENDERING FUNCTIONS ---
             const renderSettingsLists = () => {
@@ -1066,11 +1244,15 @@
                     const container = document.getElementById(`${key}-list`);
                     if (!container) return;
                     container.innerHTML = '';
-                    globalSettings[key].forEach(item => {
+                    // Ensure globalSettings[key] is an array before iterating
+                     const items = Array.isArray(globalSettings[key]) ? globalSettings[key] : [];
+                    items.forEach(item => {
+                         // Escape HTML characters in item names for safety
+                        const safeItem = String(item).replace(/</g, "&lt;").replace(/>/g, "&gt;");
                         container.innerHTML += `
                             <div class="flex justify-between items-center bg-gray-50 p-2 rounded">
-                                <span class="text-sm text-gray-700">${item}</span>
-                                <button class="delete-setting-btn text-red-500 hover:text-red-700 font-bold text-xs" data-list-key="${key}" data-value="${item}">✕</button>
+                                <span class="text-sm text-gray-700">${safeItem}</span>
+                                <button class="delete-setting-btn text-red-500 hover:text-red-700 font-bold text-xs" data-list-key="${key}" data-value="${safeItem}">✕</button>
                             </div>
                         `;
                     });
@@ -1083,18 +1265,28 @@
             const renderPlanningTable = (filteredTasks = tasks) => {
                 planningTableBody.innerHTML = '';
                 if(filteredTasks.length === 0) {
-                    planningTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-500">No tasks found.</td></tr>`;
+                    planningTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-500">No tasks found. ${tasks.length > 0 ? 'Adjust filters or' : 'Add'} tasks in the Planning tab.</td></tr>`;
                     return;
                 }
                 filteredTasks.forEach(task => {
                     const row = document.createElement('tr');
+                     // Escape HTML in task data before inserting
+                    const safeAsset = task.asset?.replace(/</g, "&lt;").replace(/>/g, "&gt;") || 'N/A';
+                    const safeDescription = task.description?.replace(/</g, "&lt;").replace(/>/g, "&gt;") || 'N/A';
+                    const safeType = task.type?.replace(/</g, "&lt;").replace(/>/g, "&gt;") || 'N/A';
+                    const safeFrequency = task.frequency?.replace(/</g, "&lt;").replace(/>/g, "&gt;") || 'N/A';
+                    const safeTime = typeof task.time === 'number' ? task.time : 'N/A';
+                    const safeStatus = task.status?.replace(/</g, "&lt;").replace(/>/g, "&gt;") || 'N/A';
+                    const statusColor = globalSettings.statusColors[task.status] || 'bg-gray-100 text-gray-800';
+
+
                     row.innerHTML = `
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${task.asset}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate" title="${task.description}">${task.description}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${task.type}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${task.frequency}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${task.time}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${globalSettings.statusColors[task.status] || 'bg-gray-100 text-gray-800'}">${task.status}</span></td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${safeAsset}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate" title="${safeDescription}">${safeDescription}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${safeType}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${safeFrequency}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${safeTime}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor} text-white">${safeStatus}</span></td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <button class="edit-btn text-indigo-600 hover:text-indigo-900" data-id="${task.id}">Edit</button>
                             <button class="delete-btn text-red-600 hover:text-red-900 ml-4" data-id="${task.id}">Delete</button>
@@ -1103,22 +1295,37 @@
                 });
             };
             
-            const renderWeeklyView = (weekNumber) => {
+            const renderWeeklyView = (weekNumberStr) => {
+                 const weekNumber = parseInt(weekNumberStr); // Parse the week number
                 if(!weekNumber || weekNumber < 1 || weekNumber > 52) {
-                    document.getElementById('weekly-task-list').innerHTML = `<tr><td colspan="4" class="text-center py-10 text-gray-500">Select a week number between 1 and 52.</td></tr>`;
+                    document.getElementById('weekly-task-list').innerHTML = `<tr><td colspan="4" class="text-center py-10 text-gray-500">Please select a valid week number (1-52).</td></tr>`;
                     document.getElementById('weekly-hours-summary').innerHTML = `<p class="text-center text-gray-500">No data to display.</p>`;
+                    document.getElementById('weekly-task-title').textContent = `Tasks for Week`;
+                     document.getElementById('weekly-hours-title').textContent = `Total Hours for Week`;
                     return;
                 }
                 document.getElementById('weekly-task-title').textContent = `Tasks for Week ${weekNumber}`;
                 document.getElementById('weekly-hours-title').textContent = `Total Hours for Week ${weekNumber}`;
-                const weeklyTasks = tasks.filter(task => getScheduledWeeks(task).includes(parseInt(weekNumber)));
+                const weeklyTasks = tasks.filter(task => getScheduledWeeks(task).includes(weekNumber));
                 const taskListBody = document.getElementById('weekly-task-list');
-                taskListBody.innerHTML = weeklyTasks.length === 0 ? `<tr><td colspan="4" class="text-center py-10 text-gray-500">No tasks scheduled for this week.</td></tr>` :
-                    weeklyTasks.map(task => `<tr>
-                        <td class="px-4 py-2 text-sm text-gray-900">${task.asset}</td>
-                        <td class="px-4 py-2 text-sm text-gray-500">${task.description}</td> <td class="px-4 py-2 text-sm text-gray-500">${task.time}</td>
-                        <td class="px-4 py-2 text-sm"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${globalSettings.statusColors[task.status] || 'bg-gray-100 text-gray-800'}">${task.status}</span></td>
-                        </tr>`).join('');
+
+                 // Escape HTML in task data before inserting
+                taskListBody.innerHTML = weeklyTasks.length === 0 ? `<tr><td colspan="4" class="text-center py-10 text-gray-500">No tasks scheduled for Week ${weekNumber}.</td></tr>` :
+                    weeklyTasks.map(task => {
+                        const safeAsset = task.asset?.replace(/</g, "&lt;").replace(/>/g, "&gt;") || 'N/A';
+                        const safeDescription = task.description?.replace(/</g, "&lt;").replace(/>/g, "&gt;") || 'N/A';
+                        const safeTime = typeof task.time === 'number' ? task.time.toFixed(1) : 'N/A'; // Format time
+                        const safeStatus = task.status?.replace(/</g, "&lt;").replace(/>/g, "&gt;") || 'N/A';
+                        const statusColor = globalSettings.statusColors[task.status] || 'bg-gray-100 text-gray-800';
+
+                        return `<tr>
+                            <td class="px-4 py-2 text-sm text-gray-900">${safeAsset}</td>
+                            <td class="px-4 py-2 text-sm text-gray-500">${safeDescription}</td>
+                            <td class="px-4 py-2 text-sm text-gray-500">${safeTime}</td>
+                            <td class="px-4 py-2 text-sm"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor} text-white">${safeStatus}</span></td>
+                        </tr>`;
+                    }).join('');
+
                 
                 const hoursSummary = document.getElementById('weekly-hours-summary');
                 hoursSummary.innerHTML = '';
@@ -1131,46 +1338,75 @@
                     if (topLevelAssetNames.includes(assetName)) return assetName;
                     
                     const findInTree = (nodes) => {
+                         if (!Array.isArray(nodes)) return null; // Guard against invalid input
                         for(const node of nodes) {
-                            if (node.children?.some(child => child.name === assetName)) return node.name;
-                            if (node.children) {
+                             // Check direct children first
+                             if (Array.isArray(node.children) && node.children.some(child => child.name === assetName)) {
+                                return node.name; // Return the immediate parent if a child matches
+                            }
+                            // Recurse deeper
+                            if (Array.isArray(node.children)) {
                                 const parentName = findInTree(node.children);
-                                if (parentName) return node.name; // Return the top-level parent
+                                if (parentName) {
+                                     // If found deeper, we need the *top-level* ancestor of the match, which is the current 'node' in this top-level call frame
+                                     // This logic needs adjustment if the tree is deeper than 2 levels and we want the *absolute* top parent.
+                                     // For now, assuming max 2 levels or returning immediate parent is acceptable. Let's return node.name for simplicity here.
+                                    return node.name; // Simplified: returns the top-level node containing the asset somewhere below
+                                 }
                             }
                         }
-                        return null;
+                        return null; // Not found in this branch
                     };
-                    return findInTree(locationConfig?.assets || []) || 'Other';
+                    // Ensure locationConfig.assets exists and is an array
+                     const assetsToSearch = Array.isArray(locationConfig?.assets) ? locationConfig.assets : [];
+                    return findInTree(assetsToSearch) || 'Other'; // Fallback for uncategorized or missing assets
                 };
 
-                const hoursByAsset = weeklyTasks.reduce((acc, task) => { 
+
+                const hoursByAsset = weeklyTasks.reduce((acc, task) => {
                     const topLevel = getTopLevelAsset(task.asset);
-                    acc[topLevel] = (acc[topLevel] || 0) + task.time; 
-                    return acc; 
+                     // Ensure time is a number before adding
+                     const taskTime = typeof task.time === 'number' ? task.time : 0;
+                    acc[topLevel] = (acc[topLevel] || 0) + taskTime;
+                    return acc;
                 }, {});
+
 
                 let totalHours = 0;
                 Object.entries(hoursByAsset).forEach(([asset, hours]) => {
-                    hoursSummary.innerHTML += `<div class="p-3 bg-gray-50 rounded-lg"><div class="flex justify-between items-center"><span class="font-semibold text-gray-700">${asset}</span><span class="font-bold text-indigo-600">${hours.toFixed(1)} hrs</span></div></div>`;
+                     // Escape asset name for display
+                     const safeAsset = asset.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                    hoursSummary.innerHTML += `<div class="p-3 bg-gray-50 rounded-lg"><div class="flex justify-between items-center"><span class="font-semibold text-gray-700">${safeAsset}</span><span class="font-bold text-indigo-600">${hours.toFixed(1)} hrs</span></div></div>`;
                     totalHours += hours;
                 });
-                if(Object.keys(hoursByAsset).length === 0){ hoursSummary.innerHTML = `<p class="text-center text-gray-500">No hours logged for this week.</p>`; } 
+                if(Object.keys(hoursByAsset).length === 0){ hoursSummary.innerHTML = `<p class="text-center text-gray-500">No hours logged for Week ${weekNumber}.</p>`; } 
                 else { hoursSummary.innerHTML += `<div class="p-3 bg-gray-100 rounded-lg mt-4 border-t-2 border-gray-200"><div class="flex justify-between items-center"><span class="font-bold text-gray-800">Total</span><span class="font-extrabold text-xl text-indigo-800">${totalHours.toFixed(1)} hrs</span></div></div>`; }
             };
 
+
             const renderYearView = () => {
                 const container = document.getElementById('year-view-grid-container');
-                let headerHtml = `<div class="sticky top-0 z-10 grid year-view-grid bg-gray-100 p-2 rounded-t-lg"><div class="font-semibold text-sm sticky left-0 bg-gray-100 z-10 pl-2">Task</div>`;
-                for (let i = 1; i <= 52; i++) { headerHtml += `<div class="text-center text-xs font-mono">${i}</div>`; }
+                let headerHtml = `<div class="sticky top-0 z-10 grid year-view-grid bg-gray-100 p-2 rounded-t-lg shadow"><div class="font-semibold text-sm sticky left-0 bg-gray-100 z-10 pl-2 flex items-center border-r">Asset / Task</div>`; // Added border
+                for (let i = 1; i <= 52; i++) { headerHtml += `<div class="text-center text-xs font-mono border-l">${i}</div>`; } // Added border
                 headerHtml += `</div>`;
                 
                 let bodyHtml = tasks.map(task => {
-                    let row = `<div class="grid year-view-grid border-b border-gray-200"><div class="text-xs font-medium text-gray-600 sticky left-0 bg-white z-10 p-2 border-r truncate" title="${task.asset}">${task.asset}</div>`;
+                     // Escape HTML in task data before inserting
+                    const safeAsset = task.asset?.replace(/</g, "&lt;").replace(/>/g, "&gt;") || 'N/A';
+                    const safeDescription = task.description?.replace(/</g, "&lt;").replace(/>/g, "&gt;") || 'N/A';
+                    const titleText = `${safeAsset} - ${safeDescription}`; // Combined title for the row header
+
+                    let row = `<div class="grid year-view-grid border-b border-gray-200 hover:bg-gray-50">
+                                   <div class="text-xs font-medium text-gray-600 sticky left-0 bg-inherit z-10 p-2 border-r truncate flex items-center" title="${titleText}">${safeAsset}</div>`; // Use bg-inherit
                     const scheduledWeeks = getScheduledWeeks(task);
                     for (let i = 1; i <= 52; i++) {
                         const isScheduled = scheduledWeeks.includes(i);
-                        const color = isScheduled ? (globalSettings.statusColors[task.status] || 'bg-gray-400') : 'bg-white';
-                        row += `<div class="text-center border-l ${color} h-6" title="Week ${i}: ${isScheduled ? task.description : 'No task'}"></div>`;
+                        const color = isScheduled ? (globalSettings.statusColors[task.status] || 'bg-gray-400') : 'bg-inherit'; // Use bg-inherit for non-scheduled
+                        const cellTitle = `Week ${i}: ${isScheduled ? safeDescription + ' (' + task.status + ')' : 'No task'}`;
+                        // Added min-h-6 for consistent row height and removed h-6
+                        row += `<div class="border-l ${color} min-h-6 flex items-center justify-center" title="${cellTitle}">
+                                   ${isScheduled ? '<span class="text-xs text-white opacity-75">✓</span>' : ''} 
+                                </div>`; // Add checkmark for visibility
                     }
                     row += `</div>`;
                     return row;
@@ -1179,69 +1415,146 @@
                 container.innerHTML = tasks.length > 0 ? headerHtml + bodyHtml : `<p class="text-center py-10 text-gray-500">No tasks to display in the year view.</p>`;
             };
 
+
             const renderDashboard = (filteredTasks = tasks) => {
                 const statusChart = document.getElementById('status-chart');
                 statusChart.innerHTML = '';
-                const statusCounts = globalSettings.statuses.reduce((acc, status) => ({ ...acc, [status]: 0 }), {});
+                 // Ensure globalSettings.statuses is an array
+                const statuses = Array.isArray(globalSettings.statuses) ? globalSettings.statuses : defaultSettings.statuses;
+                const statusCounts = statuses.reduce((acc, status) => ({ ...acc, [status]: 0 }), {});
+
                 filteredTasks.forEach(task => {
-                    if (statusCounts[task.status] !== undefined) {
+                    if (task.status && statusCounts[task.status] !== undefined) { // Check if status exists
                         statusCounts[task.status]++;
+                    } else if (task.status) {
+                         console.warn(`Task status "${task.status}" not found in global settings.`);
+                         // Optionally count unknown statuses
+                         statusCounts['Unknown'] = (statusCounts['Unknown'] || 0) + 1;
                     }
                 });
                 const totalTasks = filteredTasks.length;
+
                 if(totalTasks === 0) { statusChart.innerHTML = `<p class="text-center py-10 text-gray-500">No data for current filters.</p>`; }
                 else {
-                    globalSettings.statuses.forEach(status => {
+                    // Iterate through known statuses + 'Unknown' if it exists
+                    const allStatusesToDisplay = [...statuses];
+                    if (statusCounts['Unknown']) {
+                        allStatusesToDisplay.push('Unknown');
+                    }
+
+                    allStatusesToDisplay.forEach(status => {
                         const count = statusCounts[status];
-                        const percentage = ((count / totalTasks) * 100).toFixed(1);
-                        statusChart.innerHTML += `<div><div class="flex justify-between mb-1"><span class="text-base font-medium text-gray-700">${status} (${count})</span><span class="text-sm font-medium text-gray-500">${percentage}%</span></div><div class="w-full bg-gray-200 rounded-full h-2.5"><div class="${globalSettings.statusColors[status] || 'bg-gray-400'} h-2.5 rounded-full" style="width: ${percentage}%"></div></div></div>`;
+                        if (count > 0) { // Only display statuses with counts > 0
+                            const percentage = totalTasks > 0 ? ((count / totalTasks) * 100).toFixed(1) : 0;
+                            // Use status colors, fallback for 'Unknown'
+                            const color = globalSettings.statusColors[status] || 'bg-gray-400';
+                            // Escape status name for display
+                            const safeStatus = status.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                            statusChart.innerHTML += `
+                                <div>
+                                    <div class="flex justify-between mb-1">
+                                        <span class="text-base font-medium text-gray-700">${safeStatus} (${count})</span>
+                                        <span class="text-sm font-medium text-gray-500">${percentage}%</span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+                                        <div class="${color} h-2.5 rounded-full" style="width: ${percentage}%"></div>
+                                    </div>
+                                </div>`;
+                         }
                     });
                 }
+
 
                 const workloadChart = document.getElementById('workload-chart');
                 workloadChart.innerHTML = '';
                 const weeklyHours = Array(52).fill(0);
-                filteredTasks.forEach(task => { getScheduledWeeks(task).forEach(week => { weeklyHours[week-1] += task.time; }); });
-                const maxHours = Math.max(...weeklyHours, 1);
+                 filteredTasks.forEach(task => {
+                    const taskTime = typeof task.time === 'number' ? task.time : 0; // Ensure time is a number
+                    getScheduledWeeks(task).forEach(week => {
+                         if (week >= 1 && week <= 52) { // Ensure week is valid index
+                             weeklyHours[week-1] += taskTime;
+                         }
+                     });
+                 });
+                const maxHours = Math.max(...weeklyHours, 1); // Avoid division by zero
                 weeklyHours.forEach((hours, index) => {
-                    const height = (hours / maxHours) * 100;
-                    workloadChart.innerHTML += `<div class="flex-1 group flex flex-col items-center"><span class="text-xs text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">${hours.toFixed(1)}h</span><div class="chart-bar w-full bg-indigo-200 hover:bg-indigo-400 rounded-t" style="height: ${height > 0 ? Math.max(height, 2) : 0}%" title="Week ${index + 1}: ${hours.toFixed(1)} hours"></div><span class="text-xs text-gray-400">${index+1}</span></div>`;
+                    const height = maxHours > 0 ? (hours / maxHours) * 100 : 0;
+                     const weekNum = index + 1;
+                    workloadChart.innerHTML += `
+                        <div class="flex-1 group flex flex-col items-center justify-end min-w-[15px]">
+                           <span class="text-xs text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity mb-1 whitespace-nowrap">${hours.toFixed(1)}h</span>
+                           <div class="chart-bar w-full bg-indigo-200 hover:bg-indigo-400 rounded-t" 
+                                style="height: ${height > 0 ? Math.max(height, 5) : 0}%;" /* Min height 5% */
+                                title="Week ${weekNum}: ${hours.toFixed(1)} hours">
+                           </div>
+                           <span class="text-[10px] text-gray-400 mt-1">${weekNum}</span>
+                        </div>`;
                 });
+
 
                 const urgentTasksList = document.getElementById('urgent-tasks-list');
                 const urgentTasks = filteredTasks.filter(t => t.status === 'Open' || t.status === 'Postponed');
                 if(urgentTasks.length > 0) {
                     let table = `<table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr><th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Asset</th><th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Task</th><th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th></tr></thead><tbody>`;
-                    urgentTasks.forEach(task => { table += `<tr><td class="px-4 py-2 text-sm font-medium">${task.asset}</td><td class="px-4 py-2 text-sm text-gray-600">${task.description}</td><td class="px-4 py-2 text-sm"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${globalSettings.statusColors[task.status] || 'bg-gray-100 text-gray-800'}">${task.status}</span></td></tr>`; });
+                     urgentTasks.forEach(task => {
+                        const safeAsset = task.asset?.replace(/</g, "&lt;").replace(/>/g, "&gt;") || 'N/A';
+                        const safeDescription = task.description?.replace(/</g, "&lt;").replace(/>/g, "&gt;") || 'N/A';
+                        const safeStatus = task.status?.replace(/</g, "&lt;").replace(/>/g, "&gt;") || 'N/A';
+                        const statusColor = globalSettings.statusColors[task.status] || 'bg-gray-100 text-gray-800';
+
+                         table += `<tr>
+                                    <td class="px-4 py-2 text-sm font-medium">${safeAsset}</td>
+                                    <td class="px-4 py-2 text-sm text-gray-600">${safeDescription}</td>
+                                    <td class="px-4 py-2 text-sm"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor} text-white">${safeStatus}</span></td>
+                                  </tr>`;
+                     });
                     table += `</tbody></table>`;
                     urgentTasksList.innerHTML = table;
-                } else { urgentTasksList.innerHTML = `<p class="text-center py-8 text-gray-500">No open or postponed tasks found.</p>`; }
+                } else { urgentTasksList.innerHTML = `<p class="text-center py-8 text-gray-500">No open or postponed tasks found${filteredTasks.length > 0 ? ' matching filters' : ''}.</p>`; }
             };
 
+
             const applyFiltersAndRender = () => {
-                const selectedAsset = filterAsset.value;
-                const selectedType = filterType.value;
-                const selectedStatus = filterStatus.value;
+                 // Ensure filters exist before getting value
+                const selectedAsset = filterAsset ? filterAsset.value : 'All';
+                const selectedType = filterType ? filterType.value : 'All';
+                const selectedStatus = filterStatus ? filterStatus.value : 'All';
                 
                 const locationConfig = locationConfigs.find(p => p.id === currentLocationName);
-                const allChildAssets = (assetName) => {
-                    let assets = [assetName];
-                    const findChildren = (nodes) => {
-                        for (const node of nodes) {
-                            if (node.name === assetName && node.children) {
-                                return node.children.flatMap(child => allChildAssets(child.name));
-                            }
-                            if (node.children) {
-                                const found = findChildren(node.children);
-                                if (found) return found;
-                            }
-                        }
-                        return [];
-                    };
-                    return assets.concat(findChildren(locationConfig?.assets || []));
-                };
                 
-                const assetsToFilter = selectedAsset === 'All' ? [] : allChildAssets(selectedAsset);
+                // Recursive function to get all names in a subtree including the root
+                 const getAllAssetNamesRecursive = (node) => {
+                     let names = [node.name];
+                     if (Array.isArray(node.children)) {
+                         node.children.forEach(child => {
+                             names = names.concat(getAllAssetNamesRecursive(child));
+                         });
+                     }
+                     return names;
+                 };
+
+                 // Find the starting node in the tree
+                 const findAssetNodeByName = (nodes, name) => {
+                    if (!Array.isArray(nodes)) return null;
+                     for (const node of nodes) {
+                         if (node.name === name) return node;
+                         const foundInChildren = findAssetNodeByName(node.children, name);
+                         if (foundInChildren) return foundInChildren;
+                     }
+                     return null;
+                 };
+
+                 let assetsToFilter = [];
+                 if (selectedAsset !== 'All' && Array.isArray(locationConfig?.assets)) {
+                     const startingNode = findAssetNodeByName(locationConfig.assets, selectedAsset);
+                     if (startingNode) {
+                         assetsToFilter = getAllAssetNamesRecursive(startingNode);
+                     } else {
+                         // Asset selected in filter might not exist anymore, treat as empty filter
+                         console.warn(`Selected filter asset "${selectedAsset}" not found in current tree.`);
+                     }
+                 }
+
 
                 const filtered = tasks.filter(task => 
                     (selectedAsset === 'All' || assetsToFilter.includes(task.asset)) && 
@@ -1252,33 +1565,43 @@
                 renderPlanningTable(filtered);
             };
 
+
             // --- Asset Hierarchy Functions ---
             const renderAssetManager = (locationName) => {
                 const locationConfig = locationConfigs.find(p => p.id === locationName);
-                if (!locationConfig) { assetManagerDiv.classList.add('hidden'); return; }
+                if (!locationConfig) {
+                     assetManagerDiv.innerHTML = '<p class="text-center py-4 text-gray-500">Select a location to manage assets.</p>';
+                     assetManagerDiv.classList.remove('hidden'); // Ensure it's visible to show message
+                     return;
+                 }
 
                 const renderAssetNode = (node, level) => {
                     const isExpanded = expandedAssetNodes.has(node.id);
                     const hasChildren = node.children && node.children.length > 0;
                     const childrenHtml = (isExpanded && hasChildren) ? node.children.map(child => renderAssetNode(child, level + 1)).join('') : '';
-                    
+                     // Escape name for display and attributes
+                    const safeName = node.name.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                    const safeNameAttr = node.name.replace(/"/g, '&quot;'); // For data-name attribute
+
+
                     return `
                         <div class="asset-node-container" style="margin-left: ${level * 20}px;">
-                            <div class="asset-node" data-id="${node.id}">
+                            <div class="asset-node group" data-id="${node.id}"> <!-- Added group class -->
                                 <span class="toggle-expand-btn ${hasChildren ? '' : 'empty'}" data-id="${node.id}">
                                     ${hasChildren ? (isExpanded ? '−' : '+') : ' '}
                                 </span>
                                 <div class="asset-node-content">
-                                    <span class="text-sm font-medium text-gray-700">${node.name}</span>
+                                    <span class="text-sm font-medium text-gray-700">${safeName}</span>
                                 </div>
-                                <div class="asset-actions">
+                                <!-- Actions visible on hover via group class -->
+                                <div class="asset-actions opacity-0 group-hover:opacity-100 transition-opacity"> 
                                     <button title="Add Child" class="asset-action-btn add-child-btn" data-id="${node.id}">
                                         <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                                     </button>
-                                    <button title="Edit" class="asset-action-btn edit-asset-btn" data-id="${node.id}" data-name="${node.name}">
+                                    <button title="Edit" class="asset-action-btn edit-asset-btn" data-id="${node.id}" data-name="${safeNameAttr}">
                                         <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                                     </button>
-                                    <button title="Delete" class="asset-action-btn delete-asset-btn" data-id="${node.id}" data-name="${node.name}">
+                                    <button title="Delete" class="asset-action-btn delete-asset-btn" data-id="${node.id}" data-name="${safeNameAttr}">
                                         <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                                     </button>
                                 </div>
@@ -1288,72 +1611,90 @@
                     `;
                 };
 
-                let html = `<div class="border-t pt-4 space-y-4"><div class="flex justify-between items-center"><h4 class="text-md font-semibold text-gray-800">Assets for ${locationConfig.name}</h4><button id="add-asset-btn" class="bg-blue-500 hover:bg-blue-600 text-white text-sm font-bold py-1 px-3 rounded-md">Add Top-Level Asset</button></div>`;
-                if (locationConfig.assets && locationConfig.assets.length > 0) {
-                    html += locationConfig.assets.map(asset => renderAssetNode(asset, 0)).join('');
+                 const safeLocationName = locationConfig.name?.replace(/</g, "&lt;").replace(/>/g, "&gt;") || 'Selected Location';
+                let html = `<div class="border-t pt-4 space-y-4"><div class="flex justify-between items-center"><h4 class="text-md font-semibold text-gray-800">Assets for ${safeLocationName}</h4><button id="add-asset-btn" class="bg-blue-500 hover:bg-blue-600 text-white text-sm font-bold py-1 px-3 rounded-md">Add Top-Level Asset</button></div>`;
+                 // Ensure assets is an array before mapping
+                 const assets = Array.isArray(locationConfig.assets) ? locationConfig.assets : [];
+                if (assets.length > 0) {
+                    html += assets.map(asset => renderAssetNode(asset, 0)).join('');
                 } else {
-                    html += `<p class="text-center py-4 text-gray-500">No assets defined for this location.</p>`;
+                    html += `<p class="text-center py-4 text-gray-500">No assets defined for this location. Click "Add Top-Level Asset" to start.</p>`;
                 }
                 html += `</div>`;
                 assetManagerDiv.innerHTML = html;
                 assetManagerDiv.classList.remove('hidden');
             };
 
-            // Recursive helper functions for tree modification
-            const findNode = (nodes, id) => {
-                for (const node of nodes) {
-                    if (node.id === id) return node;
-                    if (node.children) {
-                        const found = findNode(node.children, id);
-                        if (found) return found;
-                    }
-                }
-                return null;
+
+            // Recursive helper functions for tree modification (using structuredClone for immutability)
+             const findNode = (nodes, id) => {
+                 if (!Array.isArray(nodes)) return null;
+                 for (const node of nodes) {
+                     if (node.id === id) return node;
+                     const found = findNode(node.children, id);
+                     if (found) return found;
+                 }
+                 return null;
+             };
+
+             // These functions now return the *modified copy* of the array/node
+             const addNode = (nodes, parentId, newNode) => {
+                const newNodes = structuredClone(nodes); // Clone the array
+                 if (parentId === null) {
+                    newNodes.push(newNode);
+                    return newNodes;
+                 }
+
+                 const parent = findNode(newNodes, parentId); // Find in the cloned array
+                 if (parent) {
+                     if (!parent.children) parent.children = [];
+                     parent.children.push(newNode);
+                     return newNodes; // Return the modified cloned array
+                 }
+                 console.warn("Parent node not found for adding:", parentId);
+                 return nodes; // Return original if parent not found
+             };
+
+             const updateNode = (nodes, id, newName) => {
+                 const newNodes = structuredClone(nodes);
+                 const nodeToUpdate = findNode(newNodes, id);
+                 if (nodeToUpdate) {
+                     nodeToUpdate.name = newName;
+                     return newNodes; // Return modified clone
+                 }
+                 console.warn("Node not found for updating:", id);
+                 return nodes; // Return original if not found
+             };
+
+            const deleteNodeRecursive = (nodes, id) => {
+                 if (!Array.isArray(nodes)) return { found: false, nodes: nodes }; // Return original if not array
+
+                 const newNodes = [];
+                 let found = false;
+                 for (const node of nodes) {
+                     if (node.id === id) {
+                         found = true;
+                         // Don't add this node to newNodes
+                     } else {
+                         const updatedChildrenResult = deleteNodeRecursive(node.children, id);
+                         const newNode = { ...node, children: updatedChildrenResult.nodes };
+                         newNodes.push(newNode);
+                         if (updatedChildrenResult.found) {
+                             found = true; // Propagate found status up
+                         }
+                     }
+                 }
+                 return { found, nodes: newNodes };
+             };
+
+             const deleteNode = (nodes, id) => {
+                const result = deleteNodeRecursive(nodes, id);
+                 if (!result.found) {
+                     console.warn("Node not found for deletion:", id);
+                 }
+                 return result.nodes; // Return the potentially modified array
             };
 
-            const addNode = (nodes, parentId, newNode) => {
-                if (parentId === null) { // Adding top-level asset
-                    nodes.push(newNode);
-                    return true;
-                }
-                for (const node of nodes) {
-                    if (node.id === parentId) {
-                        if (!node.children) node.children = [];
-                        node.children.push(newNode);
-                        return true;
-                    }
-                    if (node.children && addNode(node.children, parentId, newNode)) {
-                        return true;
-                    }
-                }
-                return false;
-            };
-
-            const updateNode = (nodes, id, newName) => {
-                for (const node of nodes) {
-                    if (node.id === id) {
-                        node.name = newName;
-                        return true;
-                    }
-                    if (node.children && updateNode(node.children, id, newName)) {
-                        return true;
-                    }
-                }
-                return false;
-            };
-
-            const deleteNode = (nodes, id) => {
-                for (let i = 0; i < nodes.length; i++) {
-                    if (nodes[i].id === id) {
-                        nodes.splice(i, 1);
-                        return true;
-                    }
-                    if (nodes[i].children && deleteNode(nodes[i].children, id)) {
-                        return true;
-                    }
-                }
-                return false;
-            };
             
             // --- CSV IMPORT ---
             const handleCsvImport = (event) => {
@@ -1368,7 +1709,12 @@
                         await processCsvUpload(tasksToUpload, tasksToUpdate);
                         hideLoading();
                         showAlert(`CSV Import Complete:\n- ${tasksToUpload.length} new tasks created.\n- ${tasksToUpdate.length} tasks updated.\n- ${skippedCount} rows skipped.`);
-                    } else { showAlert(`Import failed. No valid tasks found to create or update. Skipped ${skippedCount} rows.`, true); }
+                    } else { showAlert(`Import finished. No valid tasks found to create or update. Skipped ${skippedCount} rows.`, skippedCount > 0); } // Make it not an error if only skips occurred
+                    csvFileInput.value = ''; // Reset file input
+                };
+                 reader.onerror = (err) => { // Added onerror handler
+                    console.error("FileReader error:", err);
+                    showAlert("Error reading the CSV file.", true);
                     csvFileInput.value = ''; // Reset file input
                 };
                 reader.readAsText(file);
@@ -1376,95 +1722,157 @@
 
             const parseCsv = (csvText) => {
                 const lines = csvText.split(/\r\n|\n/).filter(line => line.trim() !== '');
-                if (lines.length < 2) return { tasksToUpload: [], tasksToUpdate: [], skippedCount: lines.length, error: null };
+                if (lines.length < 2) return { tasksToUpload: [], tasksToUpdate: [], skippedCount: lines.length > 0 ? lines.length -1 : 0, error: lines.length === 1 ? 'CSV only contains a header row.' : 'CSV file is empty or invalid.' }; // Adjusted error reporting
                 
-                const headers = lines[0].split(',').map(h => h.trim());
+                 // Simple header parsing (split by comma, trim whitespace and quotes)
+                const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
                 const requiredHeaders = ['asset', 'description', 'type', 'frequency', 'startWeek', 'time', 'status'];
-                if (!requiredHeaders.every(h => headers.includes(h))) {
-                    return { tasksToUpload: [], tasksToUpdate: [], skippedCount: lines.length - 1, error: 'CSV is missing required headers:\n' + requiredHeaders.join(', ') };
+                const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+                if (missingHeaders.length > 0) {
+                    return { tasksToUpload: [], tasksToUpdate: [], skippedCount: lines.length - 1, error: 'CSV is missing required headers:\n' + missingHeaders.join(', ') };
                 }
                 
                 const tasksToUpload = []; 
                 const tasksToUpdate = [];
                 let skippedCount = 0;
+                let validationErrors = []; // Collect specific row errors
                 
                 const locationConfig = locationConfigs.find(p => p.id === currentLocationName);
-                if (!locationConfig) { return { tasksToUpload: [], tasksToUpdate: [], skippedCount: lines.length - 1, error: 'Cannot import: No location selected.' }; }
+                if (!locationConfig) { return { tasksToUpload: [], tasksToUpdate: [], skippedCount: lines.length - 1, error: 'Cannot import: No location selected or location data is missing.' }; }
                 
-                // Create a flat list of all valid asset names for validation
-                const allAssetNames = new Set();
-                const collectAssetNames = (nodes) => {
-                    nodes.forEach(node => {
-                        allAssetNames.add(node.name);
-                        if(node.children) collectAssetNames(node.children);
-                    });
-                };
-                collectAssetNames(locationConfig.assets || []);
+                 // Create a flat set of all valid asset names for efficient lookup
+                 const allAssetNames = new Set();
+                 const collectAssetNames = (nodes) => {
+                    if (!Array.isArray(nodes)) return;
+                     nodes.forEach(node => {
+                         allAssetNames.add(node.name);
+                         collectAssetNames(node.children); // Recurse
+                     });
+                 };
+                 collectAssetNames(locationConfig.assets || []);
+
 
                 for (let i = 1; i < lines.length; i++) {
-                    const values = lines[i].split(',');
-                    const rowData = headers.reduce((obj, h, idx) => { obj[h] = values[idx] ? values[idx].trim().replace(/"/g, '') : ''; return obj; }, {});
+                     // Basic CSV parsing: split by comma, handle simple quotes
+                     // This is NOT robust for complex CSVs (commas within quoted fields, etc.)
+                     const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+                     if (values.length !== headers.length) {
+                         console.warn(`Skipping row ${i+1}: Incorrect number of columns. Expected ${headers.length}, got ${values.length}.`);
+                         validationErrors.push(`Row ${i+1}: Incorrect column count.`);
+                         skippedCount++;
+                         continue;
+                     }
 
-                    // --- Validation ---
+                    const rowData = headers.reduce((obj, h, idx) => { obj[h] = values[idx] || ''; return obj; }, {});
+
+                    let rowIsValid = true;
+                    let taskData = {};
+
+                    // --- Validation with error collection ---
                     if (!allAssetNames.has(rowData.asset)) {
-                        console.warn(`Skipping row ${i+1}: Asset "${rowData.asset}" not found in settings.`);
-                        skippedCount++;
-                        continue;
-                    }
+                        validationErrors.push(`Row ${i+1}: Asset "${rowData.asset || ''}" not found in Settings.`);
+                        rowIsValid = false;
+                    } else { taskData.asset = rowData.asset; }
+
                     if (!globalSettings.maintenanceTypes.includes(rowData.type)) {
-                        console.warn(`Skipping row ${i+1}: Type "${rowData.type}" not valid. Defaulting to first.`);
-                        rowData.type = globalSettings.maintenanceTypes[0];
-                    }
+                         validationErrors.push(`Row ${i+1}: Type "${rowData.type || ''}" invalid.`);
+                        rowIsValid = false;
+                    } else { taskData.type = rowData.type; }
+
                     if (!globalSettings.frequencies.includes(rowData.frequency)) {
-                        console.warn(`Skipping row ${i+1}: Frequency "${rowData.frequency}" not valid. Defaulting to first.`);
-                        rowData.frequency = globalSettings.frequencies[0];
-                    }
+                         validationErrors.push(`Row ${i+1}: Frequency "${rowData.frequency || ''}" invalid.`);
+                        rowIsValid = false;
+                    } else { taskData.frequency = rowData.frequency; }
+
                     if (!globalSettings.statuses.includes(rowData.status)) {
-                        console.warn(`Skipping row ${i+1}: Status "${rowData.status}" not valid. Defaulting to first.`);
-                        rowData.status = globalSettings.statuses[0];
+                         validationErrors.push(`Row ${i+1}: Status "${rowData.status || ''}" invalid.`);
+                        rowIsValid = false;
+                    } else { taskData.status = rowData.status; }
+
+                     const startWeekNum = parseInt(rowData.startWeek);
+                     if (isNaN(startWeekNum) || startWeekNum < 1 || startWeekNum > 52) {
+                        validationErrors.push(`Row ${i+1}: Start Week "${rowData.startWeek || ''}" invalid (must be 1-52).`);
+                        rowIsValid = false;
+                    } else { taskData.startWeek = startWeekNum; }
+
+                     const timeNum = parseFloat(rowData.time);
+                     if (isNaN(timeNum) || timeNum < 0) {
+                         validationErrors.push(`Row ${i+1}: Time "${rowData.time || ''}" invalid (must be a positive number).`);
+                         rowIsValid = false;
+                     } else { taskData.time = timeNum; }
+
+                     // Add description (optional, default if empty)
+                     taskData.description = rowData.description || 'N/A';
+
+
+                    if (!rowIsValid) {
+                        skippedCount++;
+                        continue; // Skip this row
                     }
 
-                    const taskData = {
-                        asset: rowData.asset,
-                        description: rowData.description || 'N/A',
-                        type: rowData.type,
-                        frequency: rowData.frequency,
-                        startWeek: parseInt(rowData.startWeek) || 1,
-                        time: parseFloat(rowData.time) || 0,
-                        status: rowData.status
-                    };
-
-                    if (rowData.id) {
-                        tasksToUpdate.push({ id: rowData.id, ...taskData });
+                    // Row is valid, add to upload/update lists
+                    if (rowData.id) { // Check if an ID column exists and has value
+                        tasksToUpdate.push({ id: rowData.id.trim(), ...taskData });
                     } else {
                         tasksToUpload.push(taskData);
                     }
                 }
-                return { tasksToUpload, tasksToUpdate, skippedCount, error: null };
+
+                 // Combine validation errors into a single message if any occurred
+                 let finalError = null;
+                 if (validationErrors.length > 0) {
+                     finalError = `CSV validation errors (${validationErrors.length} rows skipped):\n- ${validationErrors.slice(0, 5).join('\n- ')}${validationErrors.length > 5 ? '\n- ... (and more)' : ''}`;
+                     console.warn("CSV Import Validation Errors:", validationErrors);
+                 }
+
+                // Return results, including potential validation errors
+                 return { tasksToUpload, tasksToUpdate, skippedCount, error: finalError };
             };
 
+
             const processCsvUpload = async (tasksToUpload, tasksToUpdate) => {
-                const batch = writeBatch(db);
-                const tasksCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'locations', currentLocationName, 'tasks');
-                
+                 // Firestore limits batch writes to 500 operations. Split if necessary.
+                 const MAX_BATCH_OPERATIONS = 500;
+                 let operationCount = 0;
+                 let batches = [writeBatch(db)];
+                 const tasksCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'locations', currentLocationName, 'tasks');
+
+                 const addOperationToBatch = (type, ref, data = null) => {
+                     if (operationCount >= MAX_BATCH_OPERATIONS) {
+                         batches.push(writeBatch(db));
+                         operationCount = 0;
+                     }
+                     const currentBatch = batches[batches.length - 1];
+                     if (type === 'set') {
+                         currentBatch.set(ref, data);
+                     } else if (type === 'update') {
+                         currentBatch.update(ref, data);
+                     }
+                     operationCount++;
+                 };
+
+
                 tasksToUpload.forEach(taskData => { 
-                    const newDocRef = doc(tasksCollectionRef); 
-                    batch.set(newDocRef, taskData); 
+                    const newDocRef = doc(tasksCollectionRef); // Generate ref locally
+                    addOperationToBatch('set', newDocRef, taskData);
                 });
                 
                 tasksToUpdate.forEach(taskData => {
                     const docRef = doc(tasksCollectionRef, taskData.id);
                     const { id, ...data } = taskData; // Remove id from data object
-                    batch.update(docRef, data);
+                    addOperationToBatch('update', docRef, data);
                 });
 
-                try { 
-                    await batch.commit(); 
+                try {
+                     console.log(`Committing ${batches.length} batch(es)...`);
+                     await Promise.all(batches.map(batch => batch.commit())); // Commit all batches in parallel
+                     console.log("Batch commit successful.");
                 } catch (error) { 
-                    console.error("Error batch uploading/updating tasks:", error); 
-                    showAlert("CSV import failed: " + error.message, true); 
+                    console.error("Error committing batch:", error); 
+                    showAlert("CSV import failed during database update: " + error.message, true); 
                 }
             };
+
 
             // --- EVENT LISTENERS ---
             // --- Custom Modal Event Listeners ---
@@ -1478,123 +1886,235 @@
             confirmYesBtn.addEventListener('click', () => {
                 hideModal(confirmModal);
                 if (confirmCallback) {
-                    confirmCallback();
+                    confirmCallback(); // Execute the callback
                 }
-                confirmCallback = null;
+                confirmCallback = null; // Clear callback
             });
+
 
             promptCancelBtn.addEventListener('click', () => {
                 hideModal(promptModal);
-                promptCallback = null;
+                promptCallback = null; // Clear callback on cancel
             });
             
             promptForm.addEventListener('submit', (e) => {
                 e.preventDefault();
-                const value = promptInput.value.trim();
+                const value = promptInput.value; // Get value before hiding
+                 hideModal(promptModal); // Hide modal first
                 if (promptCallback) {
-                    promptCallback(value); // Pass value even if empty, let callback decide
+                    promptCallback(value); // Execute callback with value (even if empty)
                 }
-                hideModal(promptModal);
-                promptCallback = null;
+                promptCallback = null; // Clear callback
             });
+
 
             // --- Application Event Listeners ---
             locationSelector.addEventListener('change', (e) => switchLocation(e.target.value));
             exportCsvBtn.addEventListener('click', () => {
-                const filtered = tasks.filter(task => (filterAsset.value === 'All' || task.asset === filterAsset.value) && (filterType.value === 'All' || task.type === filterType.value) && (filterStatus.value === 'All' || task.status === filterStatus.value));
+                 // Refilter tasks based on current UI filter values before exporting
+                const selectedAsset = filterAsset.value;
+                const selectedType = filterType.value;
+                const selectedStatus = filterStatus.value;
+                const locationConfig = locationConfigs.find(p => p.id === currentLocationName);
+
+                 // Copied filtering logic from applyFiltersAndRender
+                 const getAllAssetNamesRecursive = (node) => { /* ... see applyFiltersAndRender ... */ 
+                     let names = [node.name];
+                     if (Array.isArray(node.children)) {
+                         node.children.forEach(child => {
+                             names = names.concat(getAllAssetNamesRecursive(child));
+                         });
+                     }
+                     return names;
+                 };
+                const findAssetNodeByName = (nodes, name) => { /* ... see applyFiltersAndRender ... */ 
+                     if (!Array.isArray(nodes)) return null;
+                     for (const node of nodes) {
+                         if (node.name === name) return node;
+                         const foundInChildren = findAssetNodeByName(node.children, name);
+                         if (foundInChildren) return foundInChildren;
+                     }
+                     return null;
+                 };
+
+                 let assetsToFilter = [];
+                 if (selectedAsset !== 'All' && Array.isArray(locationConfig?.assets)) {
+                     const startingNode = findAssetNodeByName(locationConfig.assets, selectedAsset);
+                     if (startingNode) {
+                         assetsToFilter = getAllAssetNamesRecursive(startingNode);
+                     }
+                 }
+
+                const filtered = tasks.filter(task => 
+                    (selectedAsset === 'All' || assetsToFilter.includes(task.asset)) && 
+                    (selectedType === 'All' || task.type === selectedType) && 
+                    (selectedStatus === 'All' || task.status === selectedStatus)
+                );
                 exportToCsv(filtered);
             });
             downloadTemplateBtn.addEventListener('click', downloadCsvTemplate);
             importCsvBtn.addEventListener('click', () => csvFileInput.click());
             csvFileInput.addEventListener('change', handleCsvImport);
             navTabs.addEventListener('click', (e) => {
-                if(e.target.tagName === 'BUTTON'){
+                if(e.target.tagName === 'BUTTON' && e.target.dataset.tab){ // Ensure it's a button with data-tab
                     document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
                     e.target.classList.add('active');
                     document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
-                    document.getElementById(`${e.target.dataset.tab}-view`).classList.remove('hidden');
+                     const targetView = document.getElementById(`${e.target.dataset.tab}-view`);
+                     if (targetView) {
+                         targetView.classList.remove('hidden');
+                     } else {
+                         console.error(`Tab content not found for tab: ${e.target.dataset.tab}`);
+                     }
                 }
             });
             taskForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
+                 // Add validation before submitting
+                 const startWeekVal = parseInt(document.getElementById('start-week').value);
+                 const timeVal = parseFloat(document.getElementById('required-time').value);
+                 const assetVal = document.getElementById('asset').value;
+
+                 if (!assetVal) {
+                    showAlert("Please select an Asset.", true); return;
+                 }
+                 if (isNaN(startWeekVal) || startWeekVal < 1 || startWeekVal > 52) {
+                     showAlert("Start Week must be between 1 and 52.", true); return;
+                 }
+                 if (isNaN(timeVal) || timeVal < 0) {
+                     showAlert("Required Time must be a non-negative number.", true); return;
+                 }
+
+
                 const id = document.getElementById('task-id').value;
                 const taskData = {
-                    asset: document.getElementById('asset').value,
-                    description: document.getElementById('task-description').value, 
+                    asset: assetVal,
+                    description: document.getElementById('task-description').value.trim() || 'N/A', // Default if empty
                     type: document.getElementById('maintenance-type').value,
                     frequency: document.getElementById('frequency').value, 
-                    startWeek: parseInt(document.getElementById('start-week').value),
-                    time: parseFloat(document.getElementById('required-time').value), 
+                    startWeek: startWeekVal,
+                    time: timeVal, 
                     status: document.getElementById('status').value
                 };
-                if (!taskData.asset) {
-                    showAlert("Asset cannot be empty.", true);
-                    return;
-                }
+
                 const tasksCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'locations', currentLocationName, 'tasks');
+                showLoading(); // Show loading indicator during save
                 try {
-                    if (id) { await setDoc(doc(tasksCollectionRef, id), taskData); } 
-                    else { await addDoc(tasksCollectionRef, taskData); }
+                    if (id) {
+                         console.log("Updating task:", id, taskData);
+                        await setDoc(doc(tasksCollectionRef, id), taskData); // Use setDoc for update to overwrite completely
+                     } 
+                    else {
+                         console.log("Adding new task:", taskData);
+                         await addDoc(tasksCollectionRef, taskData);
+                     }
                     closeModal();
                 } catch(error) { 
                     console.error("Error saving task:", error); 
                     showAlert("Could not save task: " + error.message, true); 
+                } finally {
+                    hideLoading(); // Hide loading indicator
                 }
             });
             planningTableBody.addEventListener('click', (e) => {
-                if (e.target.classList.contains('edit-btn')) { 
-                    openModal(tasks.find(t => t.id === e.target.dataset.id)); 
+                const target = e.target;
+                if (target.classList.contains('edit-btn')) { 
+                    const task = tasks.find(t => t.id === target.dataset.id);
+                     if (task) {
+                         openModal(task);
+                     } else {
+                         console.error("Task not found for edit:", target.dataset.id);
+                         showAlert("Could not find the task to edit.", true);
+                     }
                 }
-                if (e.target.classList.contains('delete-btn')) {
-                    showConfirm('Are you sure you want to delete this task?', async () => {
+                if (target.classList.contains('delete-btn')) {
+                     const taskId = target.dataset.id;
+                     const taskToDelete = tasks.find(t => t.id === taskId);
+                     const taskDesc = taskToDelete ? `"${taskToDelete.description}" for asset "${taskToDelete.asset}"` : `this task (ID: ${taskId})`;
+
+                    showConfirm(`Are you sure you want to delete ${taskDesc}?`, async () => {
+                         showLoading();
                         try { 
-                            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'locations', currentLocationName, 'tasks', e.target.dataset.id)); 
+                            console.log("Deleting task:", taskId);
+                            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'locations', currentLocationName, 'tasks', taskId)); 
+                             // No need to manually remove from 'tasks' array, onSnapshot will update it.
+                             showAlert("Task deleted successfully."); // Optional success message
                         } catch(error) { 
                             console.error("Error deleting task:", error); 
                             showAlert("Could not delete task: " + error.message, true); 
-                        }
+                        } finally {
+                             hideLoading();
+                         }
                     });
                 }
             });
             addLocationForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const newLocationName = document.getElementById('new-location-name').value.trim();
-                if (!newLocationName) return;
-                
+                const newLocationNameInput = document.getElementById('new-location-name');
+                const newLocationName = newLocationNameInput.value.trim();
+                if (!newLocationName) {
+                    showAlert("Location name cannot be empty.", true);
+                    return;
+                }
+                // Basic check for invalid characters (e.g., '/', '.', '#', '$', '[', ']') which are disallowed in Firestore document IDs
+                 if (/[.#$[\]\/]/.test(newLocationName)) {
+                     showAlert("Location name contains invalid characters (like ., #, $, [, ], /). Please use a different name.", true);
+                     return;
+                 }
+
                 if (locationConfigs.some(loc => loc.name === newLocationName)) {
                     showAlert("A location with this name already exists.", true);
                     return;
                 }
 
                 const locationDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'locations', newLocationName);
+                 showLoading();
                 try {
+                     console.log("Adding location:", newLocationName);
                     await setDoc(locationDocRef, { name: newLocationName, assets: [] });
                     addLocationForm.reset(); 
-                    editLocationSelector.value = newLocationName; 
-                    renderAssetManager(newLocationName);
-                    showAlert(`Location "${newLocationName}" added successfully.`);
+                     // Wait for onSnapshot to update selectors naturally, then select
+                     // This might take a moment, could potentially switch manually if needed faster
+                     // For now, rely on onSnapshot triggering the update and selection logic
+                     showAlert(`Location "${newLocationName}" added successfully.`);
                 } catch (error) { 
                     console.error("Error adding location:", error); 
                     showAlert("Could not add location: " + error.message, true); 
-                }
+                } finally {
+                     hideLoading();
+                 }
             });
+
 
             // --- Location Management Listeners ---
             editLocationSelector.addEventListener('change', (e) => {
-                expandedAssetNodes.clear(); // Clear expansion state when switching locations
-                renderAssetManager(e.target.value);
+                const selectedLocation = e.target.value;
+                 console.log("Edit location dropdown changed to:", selectedLocation);
+                 expandedAssetNodes.clear(); // Clear expansion state when switching locations in settings
+                renderAssetManager(selectedLocation);
                 // Enable/disable buttons
-                const hasSelection = !!e.target.value;
+                const hasSelection = !!selectedLocation;
                 renameLocationBtn.disabled = !hasSelection;
                 deleteLocationBtn.disabled = !hasSelection;
             });
+
 
             renameLocationBtn.addEventListener('click', () => {
                 const oldName = editLocationSelector.value;
                 if (!oldName) return;
 
                 showPrompt("Enter new location name:", async (newName) => {
-                    if (!newName || newName === oldName) return;
+                    newName = newName.trim(); // Trim whitespace
+                    if (!newName) {
+                         showAlert("New location name cannot be empty.", true); return;
+                     }
+                     if (newName === oldName) return; // No change needed
+
+                     // Check for invalid characters
+                     if (/[.#$[\]\/]/.test(newName)) {
+                        showAlert("New location name contains invalid characters (like ., #, $, [, ], /). Please use a different name.", true);
+                        return;
+                    }
 
                     if (locationConfigs.some(loc => loc.name === newName)) {
                         showAlert(`A location named "${newName}" already exists.`, true);
@@ -1603,272 +2123,444 @@
                     
                     showLoading();
                     try {
+                         console.log(`Attempting to rename location "${oldName}" to "${newName}"`);
                         const locationsCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'locations');
                         const oldDocRef = doc(locationsCollectionRef, oldName);
                         const newDocRef = doc(locationsCollectionRef, newName);
 
-                        // 1. Get old location data
-                        const locationData = (await getDoc(oldDocRef)).data();
-                        locationData.name = newName; // Update name field
+                        // **Transactional Rename** (more robust)
+                        await runTransaction(db, async (transaction) => {
+                            // 1. Get old location data
+                            const oldDocSnap = await transaction.get(oldDocRef);
+                            if (!oldDocSnap.exists()) {
+                                throw new Error(`Location "${oldName}" not found.`);
+                            }
+                            const locationData = oldDocSnap.data();
+                            locationData.name = newName; // Update name field within the data
 
-                        // 2. Set new location doc
-                        await setDoc(newDocRef, locationData);
+                            // 2. Read tasks from old subcollection
+                             const oldTasksRef = collection(oldDocRef, 'tasks');
+                             const tasksSnapshot = await getDocs(oldTasksRef); // Read tasks OUTSIDE transaction if possible, or accept potential inconsistency if many tasks
 
-                        // 3. Move all tasks
-                        const oldTasksRef = collection(oldDocRef, 'tasks');
-                        const newTasksRef = collection(newDocRef, 'tasks');
-                        const tasksSnapshot = await getDocs(oldTasksRef);
-                        
-                        const batch = writeBatch(db);
+                             // 3. Set new location doc (using transaction.set)
+                             transaction.set(newDocRef, locationData);
 
-                        tasksSnapshot.forEach(taskDoc => {
-                            // Copy task to new location
-                            batch.set(doc(newTasksRef, taskDoc.id), taskDoc.data());
-                            // Delete task from old location
-                            batch.delete(taskDoc.ref);
-                        });
+                             // 4. Set tasks in new subcollection & Delete old tasks (using transaction)
+                            const newTasksRef = collection(newDocRef, 'tasks');
+                             tasksSnapshot.forEach(taskDoc => {
+                                 transaction.set(doc(newTasksRef, taskDoc.id), taskDoc.data()); // Copy task to new location
+                                 transaction.delete(taskDoc.ref); // Delete task from old location
+                             });
 
-                        // 4. Delete old location doc
-                        batch.delete(oldDocRef);
+                             // 5. Delete old location doc (using transaction)
+                             transaction.delete(oldDocRef);
+                         });
 
-                        // 5. Commit all changes
-                        await batch.commit();
 
-                        // 6. Update UI
-                        editLocationSelector.value = newName; // This will trigger listeners
-                        switchLocation(newName); // Manually switch to be sure
+                         console.log(`Rename successful: "${oldName}" -> "${newName}"`);
+
+                        // --- UI Update ---
+                         // The onSnapshot listener for locations *should* handle the UI update automatically.
+                         // However, sometimes manual intervention helps ensure the correct selection.
+                         // We might need to manually update the selector value *after* onSnapshot has likely processed the change.
+                         // For now, rely on onSnapshot, but keep this in mind if selection behaves oddly.
+                        // editLocationSelector.value = newName; // Might cause issues if done too early
+                        // switchLocation(newName); // This might also be redundant if onSnapshot triggers correctly
+
                         showAlert(`Location "${oldName}" renamed to "${newName}".`);
 
                     } catch (error) {
                         console.error("Error renaming location:", error);
-                        showAlert(`Error renaming location: ${error.message}`, true);
+                        showAlert(`Error renaming location: ${error.message}. Please check console for details.`, true);
                     } finally {
                         hideLoading();
                     }
                 }, "Rename Location", oldName);
             });
 
+
             deleteLocationBtn.addEventListener('click', () => {
                 const locationName = editLocationSelector.value;
                 if (!locationName) return;
 
-                showConfirm(`Are you sure you want to delete "${locationName}"? This will delete all associated assets and tasks permanently.`, async () => {
+                showConfirm(`Are you sure you want to delete location "${locationName}"? This will delete all associated assets and tasks permanently. This action cannot be undone.`, async () => {
                     showLoading();
                     try {
+                        console.log(`Attempting to delete location: "${locationName}"`);
                         const locationsCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'locations');
                         const locationDocRef = doc(locationsCollectionRef, locationName);
                         
-                        // 1. Delete all tasks in sub-collection
-                        const tasksRef = collection(locationDocRef, 'tasks');
-                        const tasksSnapshot = await getDocs(tasksRef);
-                        
-                        const batch = writeBatch(db);
-                        tasksSnapshot.forEach(taskDoc => {
-                            batch.delete(taskDoc.ref);
-                        });
+                         // --- Transactional Delete --- (Safer for ensuring tasks are deleted first)
+                         await runTransaction(db, async (transaction) => {
+                             // Verify location exists before proceeding
+                             const locSnap = await transaction.get(locationDocRef);
+                             if (!locSnap.exists()) {
+                                 // Already deleted? Log and potentially inform user.
+                                 console.warn(`Location "${locationName}" might already be deleted.`);
+                                 return; // Exit transaction gracefully
+                             }
 
-                        // 2. Delete parent location doc
-                        batch.delete(locationDocRef);
+                             // Delete tasks first (important!) - Read task IDs *before* transaction if possible
+                            const tasksRef = collection(locationDocRef, 'tasks');
+                             const tasksSnapshot = await getDocs(tasksRef); // Read outside transaction if possible, otherwise accept potential race condition
+                             tasksSnapshot.forEach(taskDoc => {
+                                transaction.delete(taskDoc.ref);
+                             });
 
-                        // 3. Commit changes
-                        await batch.commit();
+                             // Then delete parent location doc
+                            transaction.delete(locationDocRef);
+                         });
 
-                        // 4. Update UI
-                        assetManagerDiv.classList.add('hidden');
-                        renameLocationBtn.disabled = true;
-                        deleteLocationBtn.disabled = true;
-                        
-                        // Switch to another location if one exists
-                        if (currentLocationName === locationName) {
-                            currentLocationName = null; // Force switch
-                            const remainingLocations = locationConfigs.filter(l => l.id !== locationName);
-                            if (remainingLocations.length > 0) {
-                                switchLocation(remainingLocations[0].id);
-                            } else {
-                                // No locations left
-                                locationSelector.innerHTML = '';
-                                editLocationSelector.innerHTML = '<option value="" disabled selected>-- Select a location --</option>';
-                                tasks = [];
-                                applyFiltersAndRender();
-                                renderWeeklyView(weekSelector.value || 1);
-                                renderYearView();
-                            }
-                        }
-                        
+
+                        console.log(`Location "${locationName}" deleted successfully.`);
+
+                         // UI updates will be handled by the onSnapshot listener detecting the deletion.
+                         // Resetting UI elements here might be redundant or cause race conditions.
+
                         showAlert(`Location "${locationName}" has been deleted.`);
                     } catch (error) {
                         console.error("Error deleting location:", error);
-                        showAlert(`Error deleting location: ${error.message}`, true);
+                        showAlert(`Error deleting location: ${error.message}. Please check console for details.`, true);
                     } finally {
                         hideLoading();
                     }
                 });
             });
+
             
             // --- Asset Manager Event Delegation ---
-            assetManagerDiv.addEventListener('click', async (e) => {
-                const locationName = editLocationSelector.value; if (!locationName) return;
-                const locationRef = doc(db, 'artifacts', appId, 'public', 'data', 'locations', locationName);
-                const locationConfig = locationConfigs.find(p => p.id === locationName);
-                if (!locationConfig) return;
-                
-                // Use structuredClone for a deep copy of the assets array
-                let assets = structuredClone(locationConfig.assets || []);
+             assetManagerDiv.addEventListener('click', async (e) => {
+                 const locationName = editLocationSelector.value;
+                 if (!locationName) {
+                     showAlert("Please select a location first.", true);
+                     return;
+                 }
+                 const locationRef = doc(db, 'artifacts', appId, 'public', 'data', 'locations', locationName);
+                 const locationConfig = locationConfigs.find(p => p.id === locationName);
+                 if (!locationConfig) {
+                      showAlert("Selected location data not found.", true);
+                     return;
+                 } // Ensure location config is available
 
-                const btn = e.target.closest('.toggle-expand-btn');
-                if (btn && !btn.classList.contains('empty')) {
-                    const id = btn.dataset.id;
-                    if (expandedAssetNodes.has(id)) {
-                        expandedAssetNodes.delete(id);
-                    } else {
-                        expandedAssetNodes.add(id);
-                    }
-                    renderAssetManager(locationName); // Re-render the tree
-                    return; // Stop processing
-                }
+                 // Get a fresh copy of assets for modification
+                 let currentAssets = Array.isArray(locationConfig.assets) ? structuredClone(locationConfig.assets) : [];
+                 let assetsUpdated = false; // Flag to check if update is needed
 
-                if (e.target.closest('#add-asset-btn')) {
-                    showPrompt('Enter new top-level asset name:', async (assetName) => {
-                        if (assetName) { 
-                            const newNode = { id: crypto.randomUUID(), name: assetName, children: [] };
-                            addNode(assets, null, newNode); // null parentId = top level
-                            await updateDoc(locationRef, { assets });
-                            expandedAssetNodes.add(newNode.id); // Expand parent
-                        }
-                    });
-                }
 
+                 // Handle Expand/Collapse
+                 const toggleBtn = e.target.closest('.toggle-expand-btn');
+                 if (toggleBtn && !toggleBtn.classList.contains('empty')) {
+                     const id = toggleBtn.dataset.id;
+                     if (expandedAssetNodes.has(id)) {
+                         expandedAssetNodes.delete(id);
+                     } else {
+                         expandedAssetNodes.add(id);
+                     }
+                     renderAssetManager(locationName); // Re-render needed immediately for UI change
+                     return; // No database update needed for expand/collapse
+                 }
+
+                 // Handle Add Top-Level Asset
+                 if (e.target.closest('#add-asset-btn')) {
+                     showPrompt('Enter new top-level asset name:', async (assetName) => {
+                         assetName = assetName?.trim(); // Trim input
+                         if (assetName) {
+                             const newNode = { id: crypto.randomUUID(), name: assetName, children: [] };
+                             currentAssets = addNode(currentAssets, null, newNode); // Add to the cloned array
+                             assetsUpdated = true;
+                             expandedAssetNodes.add(newNode.id); // Expand the new node
+                         } else if (assetName === '') {
+                             showAlert("Asset name cannot be empty.", true);
+                         }
+                         if (assetsUpdated) await updateDoc(locationRef, { assets: currentAssets }); // Update Firestore
+                     });
+                     return; // Don't process other buttons
+                 }
+
+                // Handle Add Child Asset
                 const addChildBtn = e.target.closest('.add-child-btn');
-                if (addChildBtn) {
-                    const parentId = addChildBtn.dataset.id;
-                    showPrompt('Enter new sub-asset name:', async (assetName) => {
-                        if (assetName) { 
-                            const newNode = { id: crypto.randomUUID(), name: assetName, children: [] };
-                            addNode(assets, parentId, newNode);
-                            await updateDoc(locationRef, { assets });
-                            expandedAssetNodes.add(parentId); // Expand parent
-                        }
-                    });
-                }
+                 if (addChildBtn) {
+                     const parentId = addChildBtn.dataset.id;
+                     showPrompt('Enter new sub-asset name:', async (assetName) => {
+                         assetName = assetName?.trim();
+                         if (assetName) {
+                             const newNode = { id: crypto.randomUUID(), name: assetName, children: [] };
+                             currentAssets = addNode(currentAssets, parentId, newNode);
+                             assetsUpdated = true;
+                             expandedAssetNodes.add(parentId); // Ensure parent is expanded
+                         } else if (assetName === '') {
+                             showAlert("Asset name cannot be empty.", true);
+                         }
+                          if (assetsUpdated) await updateDoc(locationRef, { assets: currentAssets }); // Update Firestore
+                     });
+                     return;
+                 }
 
-                const editAssetBtn = e.target.closest('.edit-asset-btn');
-                if (editAssetBtn) {
-                    const id = editAssetBtn.dataset.id;
-                    const name = editAssetBtn.dataset.name;
-                    showPrompt('Enter new asset name:', async (newName) => {
-                        if (newName && newName !== name) {
-                            // We need to also update all tasks that reference this asset
-                            showLoading();
-                            const oldName = name;
-                            updateNode(assets, id, newName);
-                            await updateDoc(locationRef, { assets });
-                            
-                            // Update tasks
-                            const tasksToUpdate = tasks.filter(t => t.asset === oldName);
-                            if (tasksToUpdate.length > 0) {
-                                const batch = writeBatch(db);
-                                const tasksCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'locations', currentLocationName, 'tasks');
-                                tasksToUpdate.forEach(task => {
-                                    batch.update(doc(tasksCollectionRef, task.id), { asset: newName });
-                                });
-                                await batch.commit();
-                            }
-                            hideLoading();
-                            showAlert(`Asset renamed to "${newName}". ${tasksToUpdate.length} tasks were updated.`);
-                        }
-                    }, 'Edit Asset Name', name);
-                }
 
-                const deleteAssetBtn = e.target.closest('.delete-asset-btn');
-                if (deleteAssetBtn) {
-                    const id = deleteAssetBtn.dataset.id;
-                    const name = deleteAssetBtn.dataset.name;
-                    // Check if tasks are associated
-                    const associatedTasks = tasks.filter(t => t.asset === name);
-                    if (associatedTasks.length > 0) {
-                        showAlert(`Cannot delete "${name}": It is used by ${associatedTasks.length} task(s). Please re-assign or delete those tasks first.`, true);
-                        return;
-                    }
+                 // Handle Edit Asset Name
+                 const editAssetBtn = e.target.closest('.edit-asset-btn');
+                 if (editAssetBtn) {
+                     const id = editAssetBtn.dataset.id;
+                     const oldName = editAssetBtn.dataset.name; // Get name from data attribute
+                     showPrompt('Enter new asset name:', async (newName) => {
+                         newName = newName?.trim();
+                         if (newName && newName !== oldName) {
+                             showLoading();
+                             try {
+                                 // Update asset tree first
+                                 currentAssets = updateNode(currentAssets, id, newName);
+                                 await updateDoc(locationRef, { assets: currentAssets });
+                                 assetsUpdated = true; // Mark as updated
 
-                    showConfirm(`Delete asset "${name}"? This cannot be undone.`, async () => {
-                        deleteNode(assets, id);
-                        await updateDoc(locationRef, { assets });
-                    });
-                }
-            });
+                                 // Then update associated tasks
+                                 const tasksToUpdate = tasks.filter(t => t.asset === oldName);
+                                 if (tasksToUpdate.length > 0) {
+                                      console.log(`Updating ${tasksToUpdate.length} tasks from asset "${oldName}" to "${newName}"`);
+                                     const batch = writeBatch(db);
+                                     const tasksCollectionRef = collection(locationRef, 'tasks');
+                                     tasksToUpdate.forEach(task => {
+                                         batch.update(doc(tasksCollectionRef, task.id), { asset: newName });
+                                     });
+                                     await batch.commit();
+                                     showAlert(`Asset renamed to "${newName}". ${tasksToUpdate.length} associated tasks were updated.`);
+                                 } else {
+                                     showAlert(`Asset renamed to "${newName}".`);
+                                 }
+                                 // onSnapshot will handle re-rendering the UI
+
+                             } catch (error) {
+                                 console.error("Error renaming asset and updating tasks:", error);
+                                 showAlert(`Error renaming asset: ${error.message}`, true);
+                                 // Revert local changes if Firestore update fails? Might be complex.
+                             } finally {
+                                 hideLoading();
+                             }
+                         } else if (newName === '') {
+                              showAlert("Asset name cannot be empty.", true);
+                         }
+                         // No Firestore update needed if name is unchanged or empty
+                     }, 'Edit Asset Name', oldName);
+                     return;
+                 }
+
+
+                 // Handle Delete Asset
+                 const deleteAssetBtn = e.target.closest('.delete-asset-btn');
+                 if (deleteAssetBtn) {
+                     const id = deleteAssetBtn.dataset.id;
+                     const name = deleteAssetBtn.dataset.name; // Get name from data attribute
+
+                     // Find all assets in the subtree being deleted
+                      const nodeToDelete = findNode(currentAssets, id);
+                      const assetsInSubtree = nodeToDelete ? getAllAssetNamesRecursive(nodeToDelete) : [name]; // Include the node itself
+
+
+                      // Check if any task uses any asset in the subtree
+                     const associatedTasks = tasks.filter(t => assetsInSubtree.includes(t.asset));
+
+                     if (associatedTasks.length > 0) {
+                         showAlert(`Cannot delete "${name}": It or its sub-assets are used by ${associatedTasks.length} task(s). Please re-assign or delete those tasks first.`, true);
+                         return; // Stop deletion
+                     }
+
+
+                     showConfirm(`Delete asset "${name}" ${nodeToDelete?.children?.length > 0 ? 'and all its sub-assets' : ''}? This cannot be undone.`, async () => {
+                          showLoading();
+                         try {
+                             currentAssets = deleteNode(currentAssets, id); // Remove from the cloned array
+                             await updateDoc(locationRef, { assets: currentAssets }); // Update Firestore
+                             assetsUpdated = true; // Mark as updated
+                             // onSnapshot will handle re-rendering
+                             showAlert(`Asset "${name}" deleted successfully.`);
+                         } catch (error) {
+                             console.error("Error deleting asset:", error);
+                             showAlert(`Error deleting asset: ${error.message}`, true);
+                         } finally {
+                             hideLoading();
+                         }
+                     });
+                     return;
+                 }
+
+                 // If any asset modification happened (add, edit, delete resulted in Firestore update),
+                 // the onSnapshot listener for locations will eventually trigger a re-render.
+                 // No need to manually call renderAssetManager here unless immediate feedback is critical
+                 // and you handle potential race conditions.
+             });
+
 
             // --- Settings List Event Delegation ---
             settingsView.addEventListener('click', async (e) => {
                 const addBtn = e.target.closest('.add-setting-btn');
                 const deleteBtn = e.target.closest('.delete-setting-btn');
+                if (!addBtn && !deleteBtn) return; // Exit if not relevant button
+
                 const settingsRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'globalConfig');
                 
                 if (addBtn) {
                     const key = addBtn.dataset.listKey;
-                    showPrompt(`Enter new value for ${key}:`, async (value) => {
-                        if (value && !globalSettings[key].includes(value)) {
-                            const newList = [...globalSettings[key], value];
-                            await updateDoc(settingsRef, { [key]: newList });
-                        } else if (value) {
-                            showAlert("This value already exists.", true);
-                        }
+                     const titleMap = { maintenanceTypes: "Maintenance Type", frequencies: "Frequency", statuses: "Status" };
+                    showPrompt(`Enter new ${titleMap[key] || key}:`, async (value) => {
+                        value = value?.trim();
+                        if (value) {
+                             // Ensure globalSettings[key] is an array
+                            const currentList = Array.isArray(globalSettings[key]) ? globalSettings[key] : [];
+                            if (!currentList.includes(value)) {
+                                const newList = [...currentList, value];
+                                 showLoading();
+                                try {
+                                    await updateDoc(settingsRef, { [key]: newList });
+                                     showAlert(`${titleMap[key] || key} "${value}" added.`);
+                                } catch (error) {
+                                    console.error(`Error adding ${key}:`, error);
+                                    showAlert(`Could not add ${key}: ${error.message}`, true);
+                                } finally {
+                                     hideLoading();
+                                 }
+                            } else {
+                                showAlert(`"${value}" already exists in ${key}.`, true);
+                            }
+                        } else if (value === '') {
+                             showAlert("Value cannot be empty.", true);
+                         }
                     });
                 }
 
                 if (deleteBtn) {
                     const key = deleteBtn.dataset.listKey;
                     const value = deleteBtn.dataset.value;
-                    showConfirm(`Are you sure you want to delete "${value}"?`, async () => {
-                        // Check if value is in use
-                        const tasksInUse = tasks.filter(t => t[key] === value); // Note: key might not be 'type', 'status', 'frequency'
-                        if (key === 'maintenanceTypes' && tasks.some(t => t.type === value) ||
-                            key === 'frequencies' && tasks.some(t => t.frequency === value) ||
-                            key === 'statuses' && tasks.some(t => t.status === value)) {
-                                showAlert(`Cannot delete "${value}": It is currently in use by tasks.`, true);
-                                return;
-                            }
-                        
-                        const newList = globalSettings[key].filter(item => item !== value);
-                        await updateDoc(settingsRef, { [key]: newList });
+                     const titleMap = { maintenanceTypes: "Maintenance Type", frequencies: "Frequency", statuses: "Status" };
+
+                    // Check if value is in use by ANY task across ALL locations (more robust check)
+                    let isInUse = false;
+                    let usageCheckMessage = `Cannot delete "${value}": It might be in use by tasks. Check all locations.`; // Default message
+                    showLoading(); // Show loading during check
+                    try {
+                         // Check tasks in the *currently loaded* location first (quick check)
+                        const currentTasksInUse = tasks.some(t =>
+                            (key === 'maintenanceTypes' && t.type === value) ||
+                            (key === 'frequencies' && t.frequency === value) ||
+                            (key === 'statuses' && t.status === value)
+                        );
+
+                         if (currentTasksInUse) {
+                            isInUse = true;
+                            usageCheckMessage = `Cannot delete "${value}": It is currently in use by tasks in location "${currentLocationName}". Please re-assign or delete those tasks first.`;
+                         } else {
+                            // If not found in current location, check ALL locations (slower but safer)
+                             console.log(`Checking all locations for usage of ${key}: "${value}"...`);
+                             const locationsSnap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'locations'));
+                             for (const locDoc of locationsSnap.docs) {
+                                 const tasksSnap = await getDocs(collection(locDoc.ref, 'tasks'));
+                                 const foundInOtherLocation = tasksSnap.docs.some(taskDoc => {
+                                     const t = taskDoc.data();
+                                     return (key === 'maintenanceTypes' && t.type === value) ||
+                                            (key === 'frequencies' && t.frequency === value) ||
+                                            (key === 'statuses' && t.status === value);
+                                 });
+                                 if (foundInOtherLocation) {
+                                     isInUse = true;
+                                     usageCheckMessage = `Cannot delete "${value}": It is in use by tasks in location "${locDoc.id}". Please check other locations.`;
+                                     break; // Stop checking once found
+                                 }
+                             }
+                         }
+                     } catch (checkError) {
+                         console.error(`Error checking ${key} usage:`, checkError);
+                         showAlert(`Could not verify if "${value}" is in use due to an error. Deletion aborted.`, true);
+                         hideLoading();
+                         return; // Abort deletion
+                     } finally {
+                         hideLoading(); // Hide loading after check finishes
+                     }
+
+
+                     if (isInUse) {
+                         showAlert(usageCheckMessage, true);
+                         return; // Stop deletion
+                     }
+
+
+                    // If not in use, proceed with deletion confirmation
+                    showConfirm(`Are you sure you want to delete ${titleMap[key] || key} "${value}"? This cannot be undone if it's not used by any tasks.`, async () => {
+                         // Ensure globalSettings[key] is an array
+                        const currentList = Array.isArray(globalSettings[key]) ? globalSettings[key] : [];
+                        const newList = currentList.filter(item => item !== value);
+                        if (newList.length < currentList.length) { // Check if item was actually found and removed
+                             showLoading();
+                            try {
+                                await updateDoc(settingsRef, { [key]: newList });
+                                 showAlert(`${titleMap[key] || key} "${value}" deleted.`);
+                            } catch (error) {
+                                console.error(`Error deleting ${key}:`, error);
+                                showAlert(`Could not delete ${key}: ${error.message}`, true);
+                            } finally {
+                                 hideLoading();
+                             }
+                        } else {
+                             console.warn(`Value "${value}" not found in ${key} list during delete confirmation.`);
+                         }
                     });
                 }
             });
 
 
+
+
             weekSelector.addEventListener('input', (e) => renderWeeklyView(e.target.value));
-            [filterAsset, filterType, filterStatus].forEach(el => el.addEventListener('change', applyFiltersAndRender));
-            resetFiltersBtn.addEventListener('click', () => { filterAsset.value = 'All'; filterType.value = 'All'; filterStatus.value = 'All'; applyFiltersAndRender(); });
-            addTaskBtn.addEventListener('click', () => openModal());
-            closeModalBtn.addEventListener('click', closeModal);
-            modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
-            reportTypeSelector.addEventListener('change', (e) => {
+            [filterAsset, filterType, filterStatus].forEach(el => {
+                if (el) el.addEventListener('change', applyFiltersAndRender)
+             });
+            if (resetFiltersBtn) resetFiltersBtn.addEventListener('click', () => { 
+                if (filterAsset) filterAsset.value = 'All'; 
+                if (filterType) filterType.value = 'All'; 
+                if (filterStatus) filterStatus.value = 'All'; 
+                applyFiltersAndRender(); 
+             });
+            if (addTaskBtn) addTaskBtn.addEventListener('click', () => openModal());
+            if (closeModalBtn) closeModalBtn.addEventListener('click', closeModal);
+            if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); }); // Close on backdrop click
+            if (reportTypeSelector) reportTypeSelector.addEventListener('change', (e) => {
                 populateDropdown(reportPeriodSelector, reportPeriods[e.target.value]);
             });
-            generatePdfBtn.addEventListener('click', generatePdfReport);
+            if (generatePdfBtn) generatePdfBtn.addEventListener('click', generatePdfReport);
             
             // --- INITIALIZATION ---
             const initialize = async () => {
-                // Populate static dropdowns
+                 console.log("Starting app initialization...");
+                // Populate static dropdowns first
                 populateDropdown(reportPeriodSelector, reportPeriods.weekly);
                 
-                // Set current week
-                const now = new Date(); const start = new Date(now.getFullYear(), 0, 1);
-                const diff = (now - start) + ((start.getTimezoneOffset() - now.getTimezoneOffset()) * 60 * 1000);
-                const day = Math.floor(diff / (1000 * 60 * 60 * 24));
-                weekSelector.value = Math.ceil(day / 7);
+                // Set current week (consider timezone)
+                try {
+                     const now = new Date();
+                     const startOfYear = new Date(now.getFullYear(), 0, 1);
+                     const dayIndex = Math.floor((now - startOfYear) / (1000 * 60 * 60 * 24));
+                     // Adjust for start of the week (e.g., Sunday or Monday) - simple approach:
+                     const weekNum = Math.ceil((dayIndex + startOfYear.getDay() + 1) / 7); // Adjust based on your week start definition if needed
+                     weekSelector.value = Math.min(Math.max(weekNum, 1), 52); // Clamp between 1 and 52
+                 } catch (e) {
+                     console.error("Error calculating current week:", e);
+                     weekSelector.value = 1; // Default to week 1 on error
+                 }
+
                 
                 // Update App ID display
-                document.getElementById('current-app-id').textContent = appId;
+                 if (document.getElementById('current-app-id')) {
+                     document.getElementById('current-app-id').textContent = appId;
+                 }
                  // Remove clear config button as it's not needed now
                 const clearConfigBtn = document.getElementById('clear-config-btn');
                 if (clearConfigBtn) {
-                    clearConfigBtn.remove(); // Or hide it: clearConfigBtn.style.display = 'none';
+                    clearConfigBtn.parentElement.remove(); // Remove the whole container div
                 }
 
 
-                await setupInitialData(); // Create sample data if it doesn't exist
-                listenForGlobalSettings(); // Listen for settings (this will populate dropdowns)
-                listenForLocations(); // This will trigger the first data load for locations & tasks
+                await setupInitialData(); // Create sample data if db is empty for this appId
+                listenForGlobalSettings(); // Load/create global settings
+                listenForLocations(); // Load locations, which triggers loading tasks for the first location
+
+                 console.log("App initialization sequence complete.");
             };
             
             initialize();
