@@ -335,44 +335,67 @@
     <script type="module">
         // Firebase Imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
         import { getFirestore, collection, onSnapshot, doc, getDoc, setDoc, addDoc, deleteDoc, runTransaction, updateDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         
+        // --- THIS IS YOUR PERSONAL DATABASE CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAxkGXSeHjupGrK33PO7JjbA_CNAYWCdOE",
+            authDomain: "maintenanceplan-2ec9f.firebaseapp.com",
+            projectId: "maintenanceplan-2ec9f",
+            storageBucket: "maintenanceplan-2ec9f.appspot.com",
+            messagingSenderId: "56889846685",
+            appId: "1:56889846685:web:9876e04681db5428495d74",
+            measurementId: "G-FPNV2407ER"
+        };
+
+
         document.addEventListener('DOMContentLoaded', async () => {
             // --- FIREBASE SETUP ---
-            // This setup uses globally available variables (__firebase_config, __app_id, __initial_auth_token)
-            // provided by the hosting environment. This avoids manual configuration.
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
             let db, auth;
             try {
-                const firebaseConfigJSON = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
-                if (firebaseConfigJSON === '{}' && (typeof __firebase_config === 'undefined')) {
-                     console.warn("Firebase config not found. Using a placeholder. This will not connect to a real database.");
+                 if (!firebaseConfig || !firebaseConfig.apiKey) {
+                    throw new Error("Firebase configuration is missing.");
                 }
-                const firebaseConfig = JSON.parse(firebaseConfigJSON);
-
                 const app = initializeApp(firebaseConfig);
+                const analytics = getAnalytics(app);
                 db = getFirestore(app);
                 auth = getAuth(app);
-
-                // Authenticate the user
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            }
-            catch (error) {
+                await signInAnonymously(auth);
+            } catch (error) {
                 console.error("Firebase initialization failed:", error);
                 const loadingOverlay = document.getElementById('loading-overlay');
-                loadingOverlay.innerHTML = `
-                <div class="text-center p-4">
-                    <h2 class="text-xl font-bold text-red-600">Database Connection Failed</h2>
-                    <p class="text-gray-700 mt-2">Could not connect to the database. Please check the console for errors.</p>
-                     <p class="text-gray-500 mt-2 text-sm">If you are running this locally, ensure you have set up your own Firebase project and config.</p>
-                </div>`;
+                
+                let errorMessage;
+                if (error.code === 'auth/configuration-not-found') {
+                    errorMessage = `
+                    <div class="text-center p-4">
+                        <h2 class="text-xl font-bold text-red-600">Firebase Authenticatie Fout</h2>
+                        <p class="text-gray-700 mt-2">De anonieme inlogmethode is niet geactiveerd in je Firebase-project.</p>
+                        <p class="text-gray-600 mt-4 text-sm"><b>Actie vereist:</b></p>
+                        <ol class="text-left text-sm text-gray-600 list-decimal list-inside mt-2 bg-gray-100 p-3 rounded">
+                            <li>Ga naar je <a href="https://console.firebase.google.com/" target="_blank" class="text-blue-600 underline">Firebase Console</a>.</li>
+                            <li>Selecteer je project: <b>${firebaseConfig.projectId || 'maintenanceplan-2ec9f'}</b>.</li>
+                            <li>Ga naar <b>Build > Authentication</b>.</li>
+                            <li>Klik op het <b>Sign-in method</b> tabblad.</li>
+                            <li>Klik op <b>Anonymous</b> in de lijst en activeer de schakelaar (Enable).</li>
+                            <li>Sla op en ververs deze pagina.</li>
+                        </ol>
+                    </div>`;
+                } else {
+                     errorMessage = `
+                    <div class="text-center p-4">
+                        <h2 class="text-xl font-bold text-red-600">Database Connection Failed</h2>
+                        <p class="text-gray-700 mt-2">The Firebase configuration is missing or incorrect.</p>
+                        <p class="text-gray-600 mt-4 text-sm">Please check the console for more details.</p>
+                    </div>`;
+                }
+                loadingOverlay.innerHTML = errorMessage;
                 return;
             }
+            const appId = firebaseConfig.projectId;
+
 
             // --- DATABASE & LISTS (Static Config) ---
             const staticDb = {
@@ -539,30 +562,46 @@
 
             // --- DATA HANDLING ---
             const setupInitialData = async () => {
-                const plantsCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'plants');
+                const plantsCollectionRef = collection(db, 'maintenance_plans', appId, 'plants');
                 const plantADocRef = doc(plantsCollectionRef, 'Plant A');
                 const plantBDocRef = doc(plantsCollectionRef, 'Plant B');
                 
-                await runTransaction(db, async (transaction) => {
-                    const plantADoc = await transaction.get(plantADocRef);
-                    const plantBDoc = await transaction.get(plantBDocRef);
-                    if (!plantADoc.exists()) {
-                         transaction.set(plantADocRef, {
-                            name: 'Plant A', assets: [ { name: 'Line 1', subAssets: ['1.1 Packer', '1.2 Filler', '1.3 Labeler'] }, { name: 'Utilities', subAssets: ['Air Compressor', 'Boiler', 'Water System'] } ]
-                        });
-                         transaction.set(doc(plantADocRef, 'tasks', 'sample1'), { asset: 'Line 1', subAsset: '1.1 Packer', description: 'Inspect conveyor belt', type: 'Inspections', frequency: 'Monthly', startWeek: 2, time: 1.5, status: 'Completed' });
-                    }
-                    if (!plantBDoc.exists()) {
-                        transaction.set(plantBDocRef, {
-                            name: 'Plant B', assets: [ { name: 'Main Assembly', subAssets: ['Robot Arm 1', 'Welding Station'] }, { name: 'Finishing Line', subAssets: ['Paint Booth', 'Drying Oven'] } ]
-                        });
-                         transaction.set(doc(plantBDocRef, 'tasks', 'sample2'), { asset: 'Main Assembly', subAsset: 'Robot Arm 1', description: 'Calibrate sensors', type: 'Corrective Maintenance (CM)', frequency: 'Quarterly', startWeek: 5, time: 4, status: 'Open' });
-                    }
-                });
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const plantADoc = await transaction.get(plantADocRef);
+                        const plantBDoc = await transaction.get(plantBDocRef);
+
+                        if (!plantADoc.exists()) {
+                            transaction.set(plantADocRef, {
+                                name: 'Plant A',
+                                assets: [
+                                    { name: 'Line 1', subAssets: ['1.1 Packer', '1.2 Filler', '1.3 Labeler'] },
+                                    { name: 'Utilities', subAssets: ['Air Compressor', 'Boiler', 'Water System'] }
+                                ]
+                            });
+                            const tasksForA = doc(collection(plantADocRef, 'tasks'));
+                            transaction.set(tasksForA, { asset: 'Line 1', subAsset: '1.1 Packer', description: 'Inspect conveyor belt', type: 'Inspections', frequency: 'Monthly', startWeek: 2, time: 1.5, status: 'Completed' });
+                        }
+
+                        if (!plantBDoc.exists()) {
+                            transaction.set(plantBDocRef, {
+                                name: 'Plant B',
+                                assets: [
+                                    { name: 'Main Assembly', subAssets: ['Robot Arm 1', 'Welding Station'] },
+                                    { name: 'Finishing Line', subAssets: ['Paint Booth', 'Drying Oven'] }
+                                ]
+                            });
+                             const tasksForB = doc(collection(plantBDocRef, 'tasks'));
+                             transaction.set(tasksForB, { asset: 'Main Assembly', subAsset: 'Robot Arm 1', description: 'Calibrate sensors', type: 'Corrective Maintenance (CM)', frequency: 'Quarterly', startWeek: 5, time: 4, status: 'Open' });
+                        }
+                    });
+                } catch (e) {
+                    console.error("Transaction for initial data failed: ", e);
+                }
             };
 
             const listenForPlants = () => {
-                const plantsCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'plants');
+                 const plantsCollectionRef = collection(db, 'maintenance_plans', appId, 'plants');
                 onSnapshot(plantsCollectionRef, (snapshot) => {
                     plantConfigs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     populatePlantSelector();
@@ -587,7 +626,7 @@
                 const assetNames = plantConfig ? plantConfig.assets.map(a => a.name) : [];
                 populateDropdown(filterAsset, assetNames, true);
                 unsubscribeTasks();
-                const tasksCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'plants', plantName, 'tasks');
+                const tasksCollectionRef = collection(db, 'maintenance_plans', appId, 'plants', plantName, 'tasks');
                 unsubscribeTasks = onSnapshot(tasksCollectionRef, (snapshot) => {
                     tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     applyFiltersAndRender();
@@ -856,7 +895,7 @@
 
             const uploadTasks = async (tasksToUpload) => {
                 const batch = writeBatch(db);
-                const tasksCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'plants', currentPlantName, 'tasks');
+                const tasksCollectionRef = collection(db, 'maintenance_plans', appId, 'plants', currentPlantName, 'tasks');
                 tasksToUpload.forEach(taskData => { const newDocRef = doc(tasksCollectionRef); batch.set(newDocRef, taskData); });
                 try { await batch.commit(); } catch (error) { console.error("Error batch uploading tasks:", error); alert("CSV import failed."); }
             };
@@ -888,7 +927,7 @@
                     frequency: document.getElementById('frequency').value, startWeek: parseInt(document.getElementById('start-week').value),
                     time: parseFloat(document.getElementById('required-time').value), status: document.getElementById('status').value
                 };
-                const tasksCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'plants', currentPlantName, 'tasks');
+                const tasksCollectionRef = collection(db, 'maintenance_plans', appId, 'plants', currentPlantName, 'tasks');
                 try {
                     if (id) { await setDoc(doc(tasksCollectionRef, id), taskData); } 
                     else { await addDoc(tasksCollectionRef, taskData); }
@@ -899,7 +938,7 @@
                 if (e.target.classList.contains('edit-btn')) { openModal(tasks.find(t => t.id === e.target.dataset.id)); }
                 if (e.target.classList.contains('delete-btn')) {
                     if(confirm('Are you sure you want to delete this task?')) {
-                        try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'plants', currentPlantName, 'tasks', e.target.dataset.id)); } 
+                        try { await deleteDoc(doc(db, 'maintenance_plans', appId, 'plants', currentPlantName, 'tasks', e.target.dataset.id)); } 
                         catch(error) { console.error("Error deleting task:", error); alert("Could not delete task."); }
                     }
                 }
@@ -908,7 +947,7 @@
                 e.preventDefault();
                 const newPlantName = document.getElementById('new-plant-name').value.trim();
                 if (!newPlantName) return;
-                const plantDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'plants', newPlantName);
+                const plantDocRef = doc(db, 'maintenance_plans', appId, 'plants', newPlantName);
                 try {
                     await setDoc(plantDocRef, { name: newPlantName, assets: [] });
                     addPlantForm.reset(); editPlantSelector.value = newPlantName; renderAssetManager(newPlantName);
@@ -917,7 +956,7 @@
             editPlantSelector.addEventListener('change', (e) => renderAssetManager(e.target.value));
             assetManagerDiv.addEventListener('click', async (e) => {
                 const plantName = editPlantSelector.value; if (!plantName) return;
-                const plantRef = doc(db, 'artifacts', appId, 'public', 'data', 'plants', plantName);
+                const plantRef = doc(db, 'maintenance_plans', appId, 'plants', plantName);
                 const plantConfig = plantConfigs.find(p => p.id === plantName);
                 let assets = JSON.parse(JSON.stringify(plantConfig.assets || []));
                 if (e.target.id === 'add-asset-btn') {
